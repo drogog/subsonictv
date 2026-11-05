@@ -1,0 +1,249 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #111114; color: #f5f4f7; font-family: Arial, sans-serif; }
+#stage { position: absolute; width: 1280px; height: 720px; -webkit-transform-origin: 0 0; transform-origin: 0 0; background: #17171c; }
+#sidebar { position: absolute; left: 0; top: 0; bottom: 100px; width: 224px; background: #111115; padding: 36px 20px; border-right: 1px solid #27272e; }
+.brand { font-size: 30px; font-weight: bold; letter-spacing: -1px; margin: 0 0 38px 8px; }
+.brand-tv { color: #ab98f4; font-size: 18px; letter-spacing: 0; }
+.brand-mark { display: inline-block; background: #ad98f5; color: #18131f; width: 31px; height: 31px; text-align: center; border-radius: 9px; font-size: 28px; }
+.brand-icon { display: inline-block; width: 38px; height: 38px; vertical-align: -9px; margin-right: 2px; }
+.nav-label, .eyebrow { font-size: 12px; letter-spacing: 2px; font-weight: bold; color: #9996aa; }
+.nav-label { margin: 0 16px 18px; }
+.nav-item { height: 38px; margin-bottom: 3px; padding: 6px 13px; border: 2px solid transparent; border-radius: 8px; color: #b4b1c0; font-size: 19px; }
+.nav-icon { display: inline-block; width: 26px; font-size: 18px; }
+.drawn-icon { height: 22px; vertical-align: -4px; }
+.drawn-icon svg { display: block; }
+.letter-selector { position: absolute; left: 34px; right: 34px; top: 114px; height: 34px; white-space: nowrap; }
+.letter { display: inline-block; width: 33px; height: 34px; margin-right: 1px; border: 2px solid transparent; border-radius: 4px; text-align: center; line-height: 30px; font-size: 17px; color: #aaa3b9; }
+.letter-all { width: 52px; }
+.letter.active { color: #eee7ff; background: #30283f; }
+.letter.focused { border-color: #c5afff; background: #3a2e51; color: #fff; }
+.alphabet-library #list { margin-top: 44px; height: 402px; }
+.alphabet-library .tile { height: 192px; }
+.alphabet-library .tile-art { width: 123px; height: 123px; }
+.alphabet-library .art-placeholder { line-height: 123px; }
+.alphabet-library .row { height: 50px; margin-bottom: 7px; padding-top: 11px; }
+.alphabet-library #notice { top: 158px; }
+.nav-item.active { background: #282333; color: #d2c2ff; }
+.nav-item.focused { border-color: #c5afff; background: #3a2e51; color: #fff; }
+.sidebar-bottom { position: absolute; bottom: 30px; left: 30px; font-size: 10px; letter-spacing: 1px; color: #a7a3b4; line-height: 2; }
+.connection-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #a99cd0; margin-right: 5px; }
+.sidebar-note { font-size: 12px; letter-spacing: 0; color: #747080; }
+#content { position: absolute; left: 224px; right: 0; top: 0; bottom: 100px; padding: 36px 34px 0; }
+h1 { font-size: 36px; margin: 8px 0 24px; letter-spacing: -1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 150px; }
+#counter { float: right; margin-top: 22px; font-size: 15px; color: #9e99ad; }
+#notice { position: absolute; top: 114px; left: 34px; right: 34px; padding: 14px 18px; background: #2c2638; color: #e2d1ff; border-radius: 8px; z-index: 2; font-size: 19px; }
+#notice:empty { display: none; }
+.shuffle-control { position: absolute; right: 34px; top: 78px; padding: 8px 15px; border: 2px solid #494053; border-radius: 20px; font-size: 15px; background: #29232f; }
+.shuffle-control.focused { border-color: #c5afff; background: #4a3865; }
+.turntable { position: absolute; left: 180px; top: 50px; width: 920px; height: 500px; border-radius: 30px; background: linear-gradient(130deg,#477e80,#23555e); border: 2px solid #6c9698; box-shadow: 0 14px 28px #030407; }
+#lp-disc { position: absolute; left: 70px; top: 30px; width: 436px; height: 436px; border: 7px solid #b6c9cb; border-radius: 50%; background: repeating-radial-gradient(circle,#17191c 0px,#17191c 2px,#24262a 3px,#14161a 4px); -webkit-animation: vinyl-spin 1.8s linear infinite; animation: vinyl-spin 1.8s linear infinite; -webkit-animation-play-state: paused; animation-play-state: paused; }
+@-webkit-keyframes vinyl-spin { from { -webkit-transform: rotate(0deg); } to { -webkit-transform: rotate(360deg); } }
+@keyframes vinyl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.lp-label { position: absolute; left: 136px; top: 136px; width: 150px; height: 150px; border-radius: 50%; overflow: hidden; background: #997ebd; color: #2b2334; line-height: 150px; font-size: 25px; font-weight: bold; border: 4px solid #17191c; }
+#lp-cover { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.lp-spindle { position: absolute; left: 204px; top: 204px; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(140deg,#fff,#708589); border: 2px solid #bbcccf; }
+#lp-arm { position: absolute; left: 550px; top: 60px; width: 120px; height: 340px; -webkit-transform-origin: 80px 30px; transform-origin: 80px 30px; -webkit-transition: -webkit-transform .5s linear; transition: transform .5s linear; }
+.lp-legend { position: absolute; right: 45px; bottom: 50px; width: 200px; text-align: left; color: #cce5e5; }
+.lp-legend .eyebrow { color: #cce5e5; font-size: 12px; }
+#lp-time { font-size: 31px; margin: 16px 0 8px; }
+#lp-position { font-size: 12px; letter-spacing: 1px; }
+.lp-legend span { display: block; font-size: 11px; letter-spacing: 3px; margin-top: 22px; opacity: .6; }
+.artwork-view.vinyl #artwork-image,.artwork-view.vinyl #artwork-placeholder { display: none; }
+#stage.theme-1 #sidebar { left: 24px; right: 24px; top: auto; bottom: 18px; width: auto; height: 82px; padding: 10px; border: 1px solid #383443; border-radius: 28px; z-index: 16; text-align: center; }
+.theme-1 .brand,.theme-1 .nav-label,.theme-1 .sidebar-bottom { display: none; }
+.theme-1 #navigation { white-space: nowrap; }
+.theme-1 .nav-item { display: inline-block; vertical-align: top; width: 128px; height: 60px; margin: 0 2px; padding: 5px 2px; border-radius: 19px; font-size: 15px; }
+.theme-1 .nav-icon { display: block; margin: 0 auto 4px; height: 21px; line-height: 21px; }
+.theme-1 #content { left: 24px; right: 24px; bottom: 110px; padding-top: 26px; }
+.theme-1 #player-bar { display: none; }
+.theme-1 #help { bottom: 12px; }
+.theme-1 .settings-panel { left: 24px; right: 24px; bottom: 110px; border-radius: 24px; }
+.theme-1 .tile { width: 275px; border-radius: 22px; }
+.theme-1 .tile-art { border-radius: 18px; }
+.theme-1 .row,.theme-1 .setting-row { border-radius: 20px; }
+.theme-1 .large-art { top: 115px; left: 70px; width: 420px; height: 420px; border-radius: 28px; }
+.theme-1 .large-art img { width: 420px; height: 420px; }
+.theme-1 .large-art .art-placeholder { line-height: 420px; }
+.theme-1 .track-info { margin: 55px 20px 0 525px; }
+.theme-1 .track-info h2 { font-size: 40px; max-height: 142px; }
+.theme-1 #now-playing h1 { font-size: 25px; }
+.theme-1 .transport-button { padding: 13px 15px; font-size: 16px; }
+.theme-2 #sidebar,.theme-2 #player-bar { background: #101c2b; }
+.theme-2 .nav-item,.theme-2 .row,.theme-2 .tile,.theme-2 .setting-row { border-radius: 20px; }
+.theme-2 .large-art,.theme-2 .tile-art { border-radius: 22px; }
+.theme-2 .transport-button { background: #20364b; }
+#list { height: 438px; overflow: hidden; }
+.tile { position: relative; display: inline-block; vertical-align: top; width: 231px; height: 214px; margin: 0 15px 8px 0; padding: 8px; border: 2px solid transparent; border-radius: 9px; }
+.tile:nth-child(4n) { margin-right: 0; }
+.tile.focused { background: #30283f; border-color: #c5afff; }
+.tile-art { position: relative; width: 145px; height: 145px; margin: 0 auto; background: #26242e; overflow: hidden; border-radius: 5px; text-align: center; }
+.art-placeholder { display: block; line-height: 145px; font-size: 58px; color: #70617e; }
+.tile-art img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+.tile-title { font-size: 19px; font-weight: bold; margin-top: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.tile-subtitle { color: #a6a1b2; font-size: 14px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.row { position: relative; height: 54px; margin-bottom: 7px; border: 2px solid transparent; border-radius: 7px; padding: 13px 16px; background: #1d1d24; }
+.row.focused { background: #30283f; border-color: #c5afff; }
+.row-number { display: inline-block; width: 42px; color: #aaa0b9; font-size: 17px; }
+.row-title { display: inline-block; max-width: 75%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 21px; vertical-align: middle; }
+.row-detail { position: absolute; right: 18px; top: 16px; color: #a6a1b2; font-size: 16px; }
+#help { position: absolute; left: 34px; bottom: 22px; color: #9691a5; font-size: 14px; }
+#player-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 100px; background: #101014; border-top: 1px solid #302a3d; padding: 20px 30px; }
+.mini-art { position: relative; float: left; height: 60px; width: 60px; background: #292430; border-radius: 5px; overflow: hidden; text-align: center; line-height: 60px; color: #b5a1cf; font-size: 28px; }
+.mini-art img { position: absolute; top: 0; left: 0; width: 60px; height: 60px; }
+.mini-copy { margin: 0 0 0 78px; width: 580px; }
+#mini-title { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mini-artist { color: #9993a8; font-size: 14px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mini-state { position: absolute; right: 225px; top: 43px; font-size: 13px; color: #b6a4dc; max-width: 270px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-shortcut { position: absolute; right: 36px; top: 43px; font-size: 12px; letter-spacing: 1px; color: #c9c3d6; }
+.blue-key { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #739fea; margin-right: 7px; }
+#mini-progress { position: absolute; left: 0; top: 0; height: 2px; width: 0; background: #b7a0f4; }
+.large-art { position: absolute; left: 34px; top: 143px; width: 320px; height: 320px; background: #28232f; border-radius: 10px; overflow: hidden; text-align: center; }
+.large-art .art-placeholder { line-height: 320px; font-size: 110px; }
+.large-art img { position: absolute; top: 0; left: 0; width: 320px; height: 320px; }
+.track-info { margin: 55px 0 0 360px; }
+.track-info h2 { font-size: 34px; margin: 14px 0; max-height: 123px; overflow: hidden; }
+.track-info p { font-size: 20px; color: #aba4b8; line-height: 1.5; max-height: 60px; overflow: hidden; }
+#progress { height: 5px; background: #38303f; margin: 26px 0 12px; }
+#progress-fill { height: 5px; width: 0; background: #b7a0f4; }
+#playback-time { font-size: 15px; color: #aaa0b8; }
+#transport { margin-top: 25px; }
+.transport-button { display: inline-block; padding: 13px 17px; margin-right: 8px; background: #29232f; border: 2px solid transparent; border-radius: 24px; font-size: 17px; }
+.transport-button.focused { border-color: #c5afff; background: #4a3865; }
+.debug { position: absolute; left: 5%; right: 5%; top: 7%; bottom: 7%; padding: 24px; background: #101014; border: 2px solid #b7a0f4; z-index: 10; overflow: hidden; }
+.hidden { display: none; }
+.debug-heading { color: #c5afff; font-size: 22px; font-weight: bold; }
+.debug-heading span { float: right; color: #aaa0b8; font-size: 17px; }
+pre { height: 85%; overflow: auto; white-space: pre-wrap; word-wrap: break-word; color: #e5edf0; font-size: 17px; line-height: 1.4; }
+.settings-panel { position: absolute; top: 0; left: 224px; right: 0; bottom: 100px; padding: 34px; background: #17171c; z-index: 15; }
+.setting-row { height: 51px; margin-bottom: 6px; padding: 12px 18px; font-size: 21px; border: 2px solid transparent; background: #22212b; border-radius: 7px; }
+.settings-panel.compact .setting-row { height: 44px; margin-bottom: 5px; padding-top: 8px; padding-bottom: 8px; font-size: 20px; }
+.about-author { font-size: 25px; color: #c5afff; margin: 4px 0 22px; }
+.about-copy { font-size: 21px; line-height: 1.45; color: #c4bece; margin: 0 0 17px; }
+.setting-value { float: right; color: #c1b9d1; font-size: 18px; max-width: 62%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#settings-message { margin-top: 20px; color: #bbb1cc; font-size: 18px; line-height: 1.5; }
+#settings-help { position: absolute; bottom: 22px; left: 34px; font-size: 15px; color: #aca4bb; }
+.keyboard { position: absolute; left: 85px; top: 45px; right: 85px; bottom: 45px; padding: 30px 45px; background: #17171c; border: 2px solid #665775; z-index: 25; }
+#keyboard-value { height: 62px; padding: 16px; margin: 15px 0; background: #0c0c10; font-size: 23px; overflow: hidden; white-space: nowrap; text-align: right; }
+#keyboard-keys { width: 1008px; }
+.keyboard-key { display: inline-block; width: 78px; height: 44px; margin: 0 6px 6px 0; text-align: center; line-height: 38px; font-size: 23px; background: #2c2735; border: 2px solid transparent; border-radius: 5px; }
+.keyboard-action { width: 246px; font-size: 19px; }
+.keyboard-help { margin-top: 15px; font-size: 17px; color: #aca4bb; }
+.artwork-view { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; z-index: 30; background: #08080b; text-align: center; }
+#ambient-canvas { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+#artwork-image { position: absolute; left: 380px; top: 45px; width: 520px; height: 520px; }
+#artwork-placeholder { position: absolute; left: 380px; top: 45px; width: 520px; height: 520px; background: #19151e; line-height: 520px; color: #776783; font-size: 160px; }
+#artwork-mode { position: absolute; right: 30px; top: 24px; font-size: 11px; color: #a095b0; letter-spacing: 1px; }
+#artwork-caption { position: absolute; left: 100px; right: 100px; top: 585px; }
+#artwork-title { font-size: 29px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#artwork-artist { font-size: 18px; color: #b2a8bf; margin-top: 5px; }
+.format-label { color: #b9a9ce; font-size: 15px; line-height: 1.4; }
+#track-format { max-height: 44px; overflow: hidden; }
+#mini-format { font-size: 12px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#artwork-format { margin-top: 3px; }
+.artwork-view.spectrum #artwork-image,.artwork-view.spectrum #artwork-placeholder { width: 200px; height: 200px; left: 540px; top: 40px; line-height: 200px; font-size: 70px; }
+#artwork-help { position: absolute; bottom: 22px; left: 0; right: 0; font-size: 15px; color: #a095b0; }
+.decoder-bench { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; z-index: 40; padding: 36px 60px; background: #111117; }
+.decoder-bench h1 { margin-bottom: 10px; }
+#decoder-song { color: #aaa1b9; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#decoder-canvas { position: absolute; left: 160px; top: 160px; width: 960px; height: 260px; }
+#decoder-metrics { position: absolute; left: 60px; right: 60px; top: 450px; white-space: pre-line; font-size: 21px; line-height: 1.6; color: #d7cce6; }
+.decoder-help { position: absolute; left: 60px; bottom: 25px; color: #aaa1b9; font-size: 16px; }
+
+/* Static surfaces keep the older TV renderer light. */
+#stage { background-image: linear-gradient(125deg,rgba(255,255,255,.025),transparent 65%); }
+#sidebar { background-image: linear-gradient(180deg,rgba(255,255,255,.025),transparent); }
+.brand { letter-spacing: -1.5px; }
+.nav-item { border-radius: 12px; }
+.nav-icon { margin-right: 5px; }
+.drawn-icon svg { margin: auto; }
+/* Use the solid focus border alone: rounded inset shadows can show seams on the TV renderer. */
+h1 { font-size: 34px; letter-spacing: -1.2px; }
+.eyebrow,.nav-label { font-size: 11px; letter-spacing: 2.2px; }
+.tile { border-radius: 18px; background: rgba(255,255,255,.025); }
+.tile-art { border-radius: 12px; }
+.tile-title { font-size: 18px; letter-spacing: -.2px; }
+.tile-subtitle { color: #b0aaba; }
+.row { border-radius: 13px; background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.025); }
+.row-number { color: #aaa5b5; }
+.row-title { font-size: 20px; }
+.letter { border-radius: 10px; }
+.letter-selector { padding: 0; }
+#counter { padding: 6px 12px; margin-top: 14px; background: rgba(255,255,255,.04); border-radius: 20px; font-size: 13px; }
+#notice { border: 1px solid rgba(255,255,255,.1); border-radius: 14px; }
+.large-art { border-radius: 22px; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 12px 28px rgba(0,0,0,.22); }
+.track-info h2 { letter-spacing: -1.2px; line-height: 1.12; }
+.track-info p { color: #bdb7c8; }
+.format-label { font-size: 14px; letter-spacing: .3px; }
+#progress,#progress-fill { height: 5px; border-radius: 5px; }
+#playback-time { letter-spacing: .6px; }
+.transport-button { border-radius: 16px; background: rgba(255,255,255,.06); }
+#player-bar { background-image: linear-gradient(180deg,rgba(255,255,255,.015),transparent); }
+.mini-art { border-radius: 12px; }
+#mini-state { top: 35px; padding: 7px 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; }
+.settings-panel { border-left: 1px solid rgba(255,255,255,.05); }
+.setting-row { position: relative; border-radius: 13px; background: rgba(255,255,255,.035); padding-right: 40px; }
+.setting-row > span:first-child { display: inline-block; max-width: 42%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; vertical-align: top; }
+.setting-row:after { content: '\203A'; position: absolute; right: 16px; top: 9px; font-size: 23px; color: #898293; }
+.settings-panel.compact .setting-row:after { top: 5px; }
+.setting-value { max-width: 56%; font-size: 17px; }
+.setting-row.focused .setting-value { color: #f3edf9; }
+#settings-message { padding-left: 16px; border-left: 2px solid #51475f; font-size: 17px; line-height: 1.45; }
+#settings-message:empty { display: none; }
+#settings-help,#help { color: #b4acbf; }
+.keyboard { border-radius: 24px; }
+#keyboard-value { border-radius: 12px; }
+.keyboard-key { border-radius: 10px; }
+#artwork-image,#artwork-placeholder { border-radius: 18px; }
+#artwork-title { letter-spacing: -.6px; }
+#artwork-mode { padding: 7px 12px; border-radius: 18px; background: rgba(255,255,255,.05); }
+#artwork-help { color: #b4acbf; }
+.turntable { background: linear-gradient(135deg,#356e73,#193d48); border-color: #597e82; box-shadow: 0 16px 30px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.16); }
+.lp-legend { padding-top: 20px; border-top: 1px solid rgba(255,255,255,.2); }
+#stage.theme-1 #sidebar { background: #17171e; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.theme-1 .nav-icon { margin-right: auto; }
+.theme-1 .tile { background: rgba(255,255,255,.035); }
+.theme-1 .track-info h2 { letter-spacing: -1.5px; }
+.theme-2 .tile,.theme-2 .row,.theme-2 .setting-row { background: rgba(119,166,210,.055); }
+
+/* Listening tools: a second, directional-remote row below transport. */
+#listening-tools { margin-top: 10px; white-space: nowrap; }
+#listening-tools .transport-button { padding: 9px 16px; font-size: 15px; }
+#repeat-state { color: #b0a7bd; font-size: 13px; margin-left: 12px; }
+.track-info h2 { max-height: 78px; }
+.theme-1 .track-info h2 { max-height: 90px; }
+.nav-item { height: 34px; padding-top: 4px; padding-bottom: 4px; font-size: 18px; }
+.brand { margin-bottom: 28px; }
+.nav-label { margin-bottom: 14px; }
+.theme-1 .nav-item { width: 104px; font-size: 13px; }
+.music-panel { position: absolute; left: 224px; right: 0; top: 0; bottom: 100px; z-index: 22; padding: 34px; background: #17171c; border-left: 1px solid #35303d; }
+.theme-1 .music-panel { left: 24px; right: 24px; bottom: 110px; border: 1px solid #35303d; border-radius: 24px; }
+.music-row { height: 48px; margin-bottom: 5px; padding: 11px 16px; border: 2px solid transparent; border-radius: 14px; background: rgba(255,255,255,.035); }
+.music-name { display: inline-block; font-size: 19px; max-width: 68%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music-detail { float: right; font-size: 14px; color: #bcb2ca; max-width: 30%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 3px; }
+#music-message { margin-top: 16px; font-size: 17px; color: #bcb2ca; line-height: 1.4; }
+#music-help { position: absolute; bottom: 22px; left: 34px; right: 24px; font-size: 13px; color: #bcb2ca; }
+.music-input { border: 1px solid #51475f; border-radius: 14px; padding: 16px; font-size: 22px; height: 62px; margin-bottom: 18px; overflow: hidden; white-space: nowrap; }
+.search-keys { width: 944px; }
+.search-key { display: inline-block; width: 110px; height: 46px; margin: 0 8px 8px 0; padding: 10px 0; text-align: center; font-size: 19px; border: 2px solid transparent; border-radius: 12px; background: #29242f; }
+
+/* Keep metadata and focus prominent; leave decorative copy out of the layout. */
+.brand { margin-bottom: 42px; }
+#breadcrumb { min-height: 14px; }
+.track-info { margin-top: 106px; }
+.theme-1 .track-info { margin-top: 110px; }
+#playback-state { min-height: 13px; letter-spacing: 1px; }
+#mini-state:empty,#artwork-mode:empty,#music-message:empty,#repeat-state:empty { display: none; }
+#lp-position { display: none; }
+.lp-legend { padding-top: 0; border-top: 0; }
+#lp-time { font-size: 28px; margin: 0; }
+
+#help,#settings-help,#music-help,#artwork-help { white-space: pre-wrap; }
+
+/* Larger transport targets with a single solid focus border, without pill ends. */
+#transport { white-space: nowrap; }
+#transport .transport-button { height: 68px; width: 76px; padding: 0; margin-right: 10px; border-radius: 6px; line-height: 64px; text-align: center; vertical-align: middle; }
+#transport #toggle-control { width: 96px; }
+#transport #artwork-control { width: 144px; margin-right: 0; font-size: 16px; }
+#transport svg { display: inline-block; vertical-align: middle; }
+#artwork-control svg { margin-right: 9px; }
+#listening-tools .transport-button { border-radius: 6px; }

@@ -1,0 +1,12 @@
+SubsonicTV
+Copyright (C) 2026 Dramak
+
+Original application code is licensed under the GNU General Public License,
+version 2 only (GPL-2.0-only). See LICENSE.
+
+This program is distributed without any warranty; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Bundled third-party components retain their own copyrights and licenses.
+See js/vendor/NOTICES.md in the widget, or subsonic-tv/js/vendor/NOTICES.md
+in the source repository.

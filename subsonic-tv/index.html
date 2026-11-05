@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SubsonicTV</title><link rel="stylesheet" href="css/main.css"><style id="theme"></style></head>
+<body>
+<div id="stage">
+  <div id="sidebar">
+    <div class="brand"><img class="brand-icon" src="icon.svg" alt=""> sonic<span class="brand-tv">TV</span></div>
+    <div id="navigation"></div>
+  </div>
+  <div id="content">
+    <div id="library">
+      <div class="eyebrow" id="breadcrumb">YOUR COLLECTION</div>
+      <div id="counter"></div><h1 id="heading">Recently added</h1>
+      <div id="letter-selector" class="hidden" role="group" aria-label="Filter by first letter"></div>
+      <div id="shuffle-control" class="hidden" role="button"></div><div id="notice"></div>
+      <div id="list" role="listbox" aria-label="Music library"></div>
+    </div>
+    <div id="now-playing" class="hidden">
+      <div id="large-art" class="large-art"><span class="art-placeholder">♫</span><img id="cover" class="hidden" alt=""></div>
+      <div class="track-info"><div class="eyebrow" id="playback-state"></div><h2 id="track-title">Choose music</h2><div id="track-format" class="format-label"></div><p id="track-artist">Play an album or playlist from your library.</p>
+      <div id="progress"><div id="progress-fill"></div></div><div id="playback-time">0:00 / 0:00</div>
+      <div id="transport"><div id="previous-control" class="transport-button" role="button" aria-label="Previous track"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 5h3v14H5zM19 5v14L9 12Z"/></svg></div><div id="toggle-control" class="transport-button" role="button" aria-label="Play"><svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4l13 8-13 8Z"/></svg></div><div id="next-control" class="transport-button" role="button" aria-label="Next track"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h3v14h-3zM5 5l10 7-10 7Z"/></svg></div><div id="artwork-control" class="transport-button" role="button" aria-label="Fullscreen"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg><span>Fullscreen</span></div></div><div id="listening-tools"><div id="queue-control" class="transport-button">Queue</div><div id="options-control" class="transport-button">Song options</div><span id="repeat-state"></span></div></div>
+    </div>
+    <div id="help"></div>
+  </div>
+  <div id="player-bar"><div class="mini-art"><span>♫</span><img id="mini-cover" class="hidden" alt=""></div><div class="mini-copy"><div id="mini-title">Nothing playing</div><div id="mini-format" class="format-label"></div><div id="mini-artist">Choose an album, artist or playlist to begin.</div></div><div id="mini-state"></div><div class="player-shortcut"><span class="blue-key"></span> NOW PLAYING</div><div id="mini-progress"></div></div>
+  <div id="debug" class="debug hidden"><div class="debug-heading">DEBUG LOG <span>Red to close</span></div><pre id="debug-log"></pre></div>
+  <div id="settings-panel" class="hidden"><h1 id="settings-title">Settings</h1><div id="settings-list"></div><div id="settings-message"></div><div id="settings-help"></div></div>
+  <div id="music-panel" class="hidden"><h1 id="music-title"></h1><div id="music-input" class="hidden"></div><div id="music-list"></div><div id="music-message"></div><div id="music-help"></div></div>
+  <div id="keyboard" class="hidden"><div class="eyebrow" id="keyboard-title"></div><div id="keyboard-value"></div><div id="keyboard-keys"></div><div class="keyboard-help">Arrows · OK to type · Red to clear · Done to keep · Back to cancel</div></div>
+  <div id="artwork-view" class="hidden"><canvas id="ambient-canvas" width="640" height="360" class="hidden"></canvas><div id="turntable" class="hidden"><div id="lp-disc"><div class="lp-label"><span>sonicTV</span><img id="lp-cover" class="hidden" alt="Album label"></div><div class="lp-spindle"></div></div><div id="lp-arm"><svg width="120" height="340" viewBox="-40 0 120 340"><path d="M40 30V240Q40 260 20 275L-20 300" fill="none" stroke="#14282c" stroke-width="16"/><path d="M40 30V240Q40 260 20 275L-20 300" fill="none" stroke="#cbd5d5" stroke-width="10"/><path d="M37 30V240Q37 258 17 273L-23 298" fill="none" stroke="#f8ffff" stroke-width="2"/><circle cx="40" cy="30" r="27" fill="#b3c1c3" stroke="#e8f3f1" stroke-width="4"/><circle cx="40" cy="30" r="13" fill="#657e82"/><path d="M-35 290L-15 276L5 301L-15 317Z" fill="#dce5e4"/><path d="M-16 315l-4 7" stroke="#f1baab" stroke-width="4"/></svg></div><div class="lp-legend"><div id="lp-time"></div><div id="lp-position"></div></div></div><div id="artwork-mode"></div><div id="artwork-placeholder">♫</div><img id="artwork-image" class="hidden" alt="Album cover"><div id="artwork-caption"><div id="artwork-title"></div><div id="artwork-format" class="format-label"></div><div id="artwork-artist"></div></div><div id="artwork-help"></div></div>
+  <div id="decoder-bench" class="hidden"><div class="eyebrow">EXPERIMENTAL STREAMING PLAYBACK</div><h1 id="decoder-heading"></h1><div id="decoder-song"></div><canvas id="decoder-canvas" width="960" height="260"></canvas><div id="decoder-metrics"></div><div class="decoder-help">Back / Stop  End test and return · Decodes small ranges; does not preload the whole song</div></div>
+</div>
+<audio id="audio" preload="none"></audio>
+<object id="native-player" type="application/avplayer" style="position:absolute;left:0;top:0;width:1px;height:1px;z-index:-1"></object>
+<script src="$WEBAPIS/webapis/webapis.js"></script>
+<script src="js/config.js"></script><script src="js/settings-store.js"></script><script src="js/screen-awake.js"></script><script src="js/api.js"></script><script src="js/mix.js"></script><script src="js/catalog.js"></script><script src="js/format.js"></script><script src="js/native-audio.js"></script><script src="js/stream-audio.js"></script><script src="js/listening.js"></script><script src="js/player.js"></script><script src="js/settings-ui.js"></script><script src="js/visualizer.js"></script><script src="js/turntable.js"></script><script src="js/artwork.js"></script><script src="js/vendor/aurora.js"></script><script src="js/vendor/mp3.js"></script><script src="js/vendor/flac.js"></script><script src="js/stream-decoder.js"></script><script src="js/decoder-bench.js"></script><script src="js/music-panel.js"></script><script src="js/app.js"></script>
+</body></html>
