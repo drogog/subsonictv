@@ -13,7 +13,7 @@ The widget uses ES5 JavaScript and a fixed 1280×720 layout scaled to the displa
 | `js/stream-decoder.js` | Bounded HTTP ranges, compressed-buffer disposal, PCM scheduling and Web Audio analysis |
 | `js/listening.js` | Compact queue persistence, ReplayGain and idle fullscreen |
 | `js/music-panel.js` | Search, favourites, queue editing and song actions |
-| `js/catalog.js`, `js/mix.js` | Full-library metadata collection and weighted mixes |
+| `js/catalog.js`, `js/mix.js`, `js/seed-mix.js` | Library metadata, weighted discovery and bounded seed mixes |
 | `js/artwork.js`, `js/visualizer.js`, `js/turntable.js` | Fullscreen artwork, canvas styles and LP animation |
 | `js/settings-store.js`, `js/settings-ui.js` | Validated preferences, account setup and remote keyboard |
 | `js/screen-awake.js` | Foreground Samsung screensaver policy |
@@ -33,10 +33,14 @@ The canvas uses 640×360 backing pixels and a roughly 60 FPS draw cap. Measured 
 
 ## Data retained
 
-- Server URL, username, token and salt, and appearance/playback preferences: TV localStorage.
+- Up to eight server profiles (URL, username, token and salt), active connection, and appearance/playback preferences: TV localStorage. Plaintext passwords are not saved. A profile switch validates with an isolated ping and reloads the app after saving, clearing in-memory library/queue/favourite caches. Queue snapshots remain scoped to their server/account; a snapshot from another server is never restored.
 - Session restore: at most 500 compact library track entries, scoped by server and username, written when the queue/current entry changes. No song bytes or stream URLs are persisted in the session snapshot.
 - Track Mix history: up to 200 track records, scoped by server and username.
 - Album letter index, library pages and active queue: RAM for the running session.
 - Audio: bounded compressed/PCM buffers in RAM. The application does not write audio files. Browser or firmware HTTP caching is outside this guarantee.
 
 Favourites are read and changed through the music server. Playback does not write ratings or scrobbles. There is no application analytics or diagnostic upload in normal startup. The interactive decoder benchmark runs locally and must be started explicitly.
+
+Now Playing seed mixes collect metadata in a cancellable operation. Queue revision, playback revision and the current track/index guard an atomic replacement of upcoming entries. The player never reloads its audio output for this operation. See [mix behaviour and limits](roadmap.md).
+
+Visualization trails retain 13 fixed snapshots of 48 spectrum levels and 160 waveform samples in RAM. Each frame clears opaquely and draws at most three historical shapes plus the current one. This avoids alpha-rounding residue and bounds memory and draw work; new styles use Canvas 2D without extra libraries or audio downloads.
