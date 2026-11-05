@@ -1,0 +1,37 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+let time=0,id=0,state;const timers=new Map(),events={},nodes={};
+function tick(ms){time+=ms;for(const [key,fn]of [...timers])if(timers.has(key))fn();}
+function el(){return {style:{},className:'',textContent:'',removeAttribute(k){delete this[k];},getContext(){return {clearRect(){},fillRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){}};}};}
+const audio={paused:true,currentTime:0,duration:100,volume:1,addEventListener(n,fn){events[n]=fn;},getAttribute(k){return this[k];},removeAttribute(k){delete this[k];},load(){this.paused=true;this.currentTime=0;},play(){this.paused=false;events.playing();},pause(){this.paused=true;events.pause();}};
+const document={hidden:false,getElementById(k){return k==='audio'?audio:nodes[k]||(nodes[k]=el());},addEventListener(n,fn){events[n]=fn;}};
+const c={window:{},Date:{now(){return time;}},setInterval(fn){timers.set(++id,fn);return id;},clearInterval(id){timers.delete(id);},document,SUBSONIC_CONFIG:{},AppSettings:{values:{fade:500,display:1,accent:0},palette:['#abcdef']},MusicAPI:{url(m,p){return m+':'+p.id+':'+p.size;}}};
+vm.createContext(c);vm.runInContext(fs.readFileSync('subsonic-tv/js/player.js','utf8'),c);
+const p=c.MusicPlayer;p.listen(s=>{state=s;});p.queue([{id:'music',coverArt:'cover'}],0);
+assert.equal(audio.volume,0);tick(250);assert.equal(audio.volume,0.5);tick(250);assert.equal(audio.volume,1);
+p.pause();tick(250);assert.equal(audio.volume,0.5);assert(!audio.paused);
+p.toggle();tick(500);assert(!audio.paused);assert.equal(audio.volume,1);assert.equal(timers.size,0);
+p.pause();tick(500);assert(audio.paused);assert.equal(audio.volume,1);
+p.play();tick(200);p.stop();assert.equal(timers.size,0);assert(audio.paused);assert.equal(audio.volume,1);
+p.radio([{id:'r',name:'Radio',streamUrl:'http://test/live'}],0);tick(500);p.pause();tick(500);assert(!audio.src);assert.equal(state.state,'Stopped');
+vm.runInContext(fs.readFileSync('subsonic-tv/js/artwork.js','utf8'),c);const art=c.ArtworkView;
+art.update({track:{title:'Song',coverArt:'cover'},state:'Playing'});assert.equal(timers.size,0);
+art.open();assert.equal(nodes['artwork-image'].src,'getCoverArt:cover:600');assert.equal(timers.size,1);
+art.update({track:{title:'Song',coverArt:'cover'},state:'Paused'});assert.equal(timers.size,0);
+art.update({track:{title:'Song',coverArt:'cover'},state:'Playing'});assert.equal(timers.size,1);
+document.hidden=true;events.visibilitychange();assert.equal(timers.size,0);
+document.hidden=false;events.visibilitychange();assert.equal(timers.size,1);
+art.handle({keyCode:10009});assert.equal(timers.size,0);assert(!nodes['artwork-image'].src);
+console.log('PASS: fade timing, interrupted pause, stop cleanup, radio fade, fullscreen cover, and animation paused/hidden/closed cleanup.');
+c.MusicPlayer.analysisAvailable=function(){return false;};c.MusicPlayer.analysisStatus=function(){return 'Live spectrum unavailable';};let hooks=0;c.MusicPlayer.analysis=function(enabled){if(enabled)hooks++;};
+art.open();art.handle({keyCode:38});assert.equal(nodes['artwork-view'].className,'artwork-view');assert.equal(nodes['ambient-canvas'].className,'hidden');assert.equal(timers.size,0);assert(nodes['artwork-mode'].textContent.includes('unavailable'));
+art.update({track:{title:'Next',coverArt:'new'},state:'Playing'});assert.equal(hooks,1,'blocked spectrum must not reattach on track changes');
+art.handle({keyCode:10009});assert.equal(timers.size,0);
+console.log('PASS: unavailable spectrum keeps full cover, hides empty canvas and skips automatic hooks.');
+c.setTimeout=function(fn){timers.set(++id,fn);return id;};c.clearTimeout=function(i){timers.delete(i);};
+vm.runInContext(fs.readFileSync('subsonic-tv/js/visualizer.js','utf8'),c);
+c.AppSettings.values.display=2;c.AppSettings.values.visualizer=0;c.AppSettings.values.effect=0;c.AppSettings.visualizerNames=['Bars','Mirror','Waveform','Orbit'];c.AppSettings.effectNames=['Clean','Trails','Pulse'];c.AppSettings.set=function(k,v){this.values[k]=v;return true;};
+c.MusicPlayer.analysisAvailable=()=>true;c.MusicPlayer.spectrum=()=>new Uint8Array(512).fill(80);c.MusicPlayer.waveform=()=>new Uint8Array(1024).fill(128);c.MusicPlayer.analysisStatus=()=>'Live audio';
+art.open();assert.equal(timers.size,1);art.handle({keyCode:40});assert.equal(c.AppSettings.values.visualizer,1);art.handle({keyCode:40});assert.equal(c.AppSettings.values.visualizer,2);art.handle({keyCode:40});assert.equal(c.AppSettings.values.visualizer,3);art.handle({keyCode:405});assert.equal(c.AppSettings.values.effect,1);assert.equal(hooks,1,'style and effect changes must not touch playback');
+art.update({track:{title:'Next',coverArt:'new'},state:'Paused'});assert.equal(timers.size,0);art.handle({keyCode:10009});assert.equal(timers.size,0);
+console.log('PASS: fullscreen style/effect keys preserve audio, and reactive drawing stops on pause/close.');
+vm.runInContext(fs.readFileSync('subsonic-tv/js/turntable.js','utf8'),c);c.AppSettings.values.display=3;const vinylTrack={title:'Vinyl',coverArt:'vinyl',duration:200};art.update({track:vinylTrack,state:'Playing',time:20,duration:200});art.open();assert.equal(nodes['lp-cover'].src,'getCoverArt:vinyl:200');assert.equal(nodes['lp-disc'].style.animationPlayState,'running');assert.equal(timers.size,0,'LP uses CSS compositing, not a JS frame timer');art.update({track:vinylTrack,state:'Paused',time:80,duration:200});assert.equal(nodes['lp-disc'].style.animationPlayState,'paused');assert.equal(nodes['lp-arm'].style.transform,'rotate(28.80deg)');document.hidden=true;events.visibilitychange();assert.equal(nodes['lp-disc'].style.animationPlayState,'paused');document.hidden=false;events.visibilitychange();art.handle({keyCode:10009});assert(!nodes['lp-cover'].src);assert.equal(timers.size,0);console.log('PASS: LP fullscreen integration, cover reuse, pause, progress and zero JS animation timers.');

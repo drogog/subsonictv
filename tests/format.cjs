@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');const c={};
+vm.runInNewContext(fs.readFileSync('subsonic-tv/js/format.js','utf8'),c);const f=c.AudioFormat;
+const flac={suffix:'flac',contentType:'audio/flac',bitRate:828,bitDepth:16,samplingRate:44100};
+assert.equal(f.describe(flac,'audio/ogg',false),'OGG stream · from FLAC · Source: 16-bit / 44.1 kHz / 828 kbps');
+assert(f.describe(flac,'audio/flac',false).startsWith('FLAC stream'));
+assert(f.describe(flac,'',false).includes('Stream format unverified'));
+assert(f.describe({suffix:'m4a'},'audio/mp4',false).startsWith('M4A stream'));
+assert(!f.describe({suffix:'m4a'},'audio/mp4',false).includes('AAC'));
+assert.equal(f.describe({radio:true},'',false),'Live radio · Format unavailable');
+assert.equal(f.describe({radio:true},'audio/mpeg',false),'MP3 · Live radio');
+console.log('PASS: stream/source format distinction, source-only quality fields, M4A container and unknown radio format.');
