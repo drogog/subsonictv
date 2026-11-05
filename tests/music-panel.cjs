@@ -9,3 +9,19 @@ p.favourites();assert.equal(requests.slice(-1)[0].m,'getStarred2');response({sta
 p.queue();assert.equal(nodes['music-title'].textContent,'Queue');key(39);assert.deepEqual(moved[0],[0,1]);key(404);assert.equal(played.slice(-1)[0],1);key(405);assert.deepEqual(removed,[1]);assert.equal(labels().length,1);key(13);response({song:{id:'one'}});assert(!labels().includes('Play next'),'queue actions do not duplicate an entry and invalidate its position');key(10009);assert.equal(nodes['music-title'].textContent,'Queue');key(10009);assert(!p.isOpen());
 p.search();key(404);requests.slice(-1)[0].cb('Offline');assert(nodes['music-message'].textContent.includes('Offline'));key(10009);assert.equal(nodes['music-title'].textContent,'Search');
 console.log('PASS: remote/Unicode search, artist/album browsing, queue actions, star/unstar, server favourites, cancellation, stale callbacks, queue move/remove and errors.');
+c.setTimeout=()=>1;c.clearTimeout=()=>{};c.TrackMix={build(items,n){return items.slice(0,n);}};
+for(const name of ['catalog','seed-mix'])vm.runInContext(fs.readFileSync('subsonic-tv/js/'+name+'.js','utf8'),c);
+let playbackRevision=0,applied=0,mixLabel='';
+c.MusicPlayer.status=()=>({index:current,track:tracks[current],count:tracks.length,revision,playbackRevision,state:'Playing',mixLabel});
+c.MusicPlayer.replaceUpcoming=(songs,expected,label)=>{assert.equal(expected.revision,revision);tracks=tracks.slice(0,current+1).concat(songs);revision++;applied++;mixLabel=label;p.update();return true;};
+const seed={id:'seed',title:'Seed song',album:'Seed album',artist:'Seed artist',albumId:'al',artistId:'ar',genre:'Jazz'};
+tracks=[seed,{id:'old'}];current=0;
+function openMix(){p.actions(seed,0);response({song:seed});assert(labels().includes('Start mix'));key(40);key(40);key(13);assert.equal(nodes['music-title'].textContent,'Start mix');assert(nodes['music-panel'].className.includes('mix-card'));}
+openMix();key(13);const pending=requests.at(-1),count=requests.length;assert.equal(pending.m,'getSimilarSongs2');key(13);assert.equal(requests.length,count,'repeated OK does not start another mix');key(10009);assert(pending.cancelled);assert.equal(nodes['music-title'].textContent,'Seed song');assert.equal(nodes['music-list'].childNodes[2].className,'music-row focused','Back restores Start mix focus');pending.cb(null,{similarSongs2:{song:[{id:'late'}]}});assert.equal(applied,0);
+key(13);key(13);const changed=requests.at(-1);revision++;p.update();assert(changed.cancelled);assert(nodes['music-message'].textContent.includes('cancelled'));changed.cb(null,{similarSongs2:{song:[{id:'late'}]}});assert.equal(applied,0);
+openMix();key(13);response({similarSongs2:{song:[{id:'new',title:'New'}]}});assert.equal(applied,1);assert.deepEqual(tracks.map(t=>t.id),['seed','new']);assert.equal(nodes['music-title'].textContent,'Queue');assert(nodes['music-message'].textContent.includes('Track mix · Seed song'));key(10009);assert(!p.isOpen());
+openMix();key(40);key(13);assert.equal(requests.at(-1).m,'getAlbum');requests.at(-1).cb('Offline');assert(nodes['music-message'].textContent.includes('unchanged'));assert.equal(applied,1);
+openMix();key(13);const skipped=requests.at(-1);playbackRevision++;p.update();assert(skipped.cancelled);assert.equal(applied,1);
+tracks=[{id:'missing',title:'Missing'}];p.actions(tracks[0],0);response({song:tracks[0]});key(40);key(40);key(13);key(40);const beforeDisabled=requests.length;key(13);assert.equal(requests.length,beforeDisabled);assert(nodes['music-message'].textContent.includes('album ID'));
+tracks=[{id:'radio',radio:true,title:'Radio'}];p.actions(tracks[0],0);assert(!labels().includes('Start mix'));
+console.log('PASS: seed menu navigation, disabled choices, radio exclusion, repeated OK, Back cancellation, stale queue/track guards and labelled result queue.');

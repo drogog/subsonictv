@@ -20,4 +20,12 @@ c.AppSettings.values.normalization=2;assert(Math.abs(l.gain({replayGain:{albumGa
 c.AppSettings.values.quality=1;assert.equal(l.gain({replayGain:{trackGain:-12}}).value,1);c.AppSettings.values.quality=0;
 p.queue([{id:'untagged'}],0);const req=requests.slice(-1)[0];p.queue([{id:'new',replayGain:{trackGain:-3}}],0);assert(req.cancelled);req.cb(null,{song:{replayGain:{trackGain:-30}}});assert(audio.volume>.7,'stale metadata does not alter new song');
 const playing={state:'Playing',track:{id:'x'}};c.IdleFullscreen.touch();now=29000;c.IdleFullscreen.update(playing,false);assert.equal(opens,0);now=30000;c.IdleFullscreen.update(playing,false);assert.equal(opens,1);now=60000;c.IdleFullscreen.update(playing,true);now=89000;c.IdleFullscreen.update(playing,false);assert.equal(opens,1);now=90000;c.IdleFullscreen.update(playing,false);assert.equal(opens,2);c.document.hidden=true;now=120000;c.IdleFullscreen.update(playing,false);assert.equal(opens,2);c.document.hidden=false;now=150000;c.IdleFullscreen.update({state:'Paused',track:{}},false);assert.equal(opens,2);
-l.forget();assert(!storage[key]);console.log('PASS: queue edits preserve audio, current removal, repeat, paused metadata-only restore, bounded persistence, stale requests, normalization/peak limits and idle fullscreen.');
+c.AppSettings.values.normalization=0;p.queue([a,b,d],1);audio.currentTime=37;
+const guard=p.status(),mixPlays=plays,mixWrites=writes;
+assert(p.replaceUpcoming([b,{id:'new'},{id:'new'},{id:'video',isVideo:true}],guard,'Track mix · B'));
+assert.deepEqual([...p.tracks().map(t=>t.id)],['a','b','new']);assert.equal(p.status().track,b);assert.equal(audio.currentTime,37);assert.equal(plays,mixPlays);assert.equal(writes,mixWrites+1);assert.equal(p.status().mixLabel,'Track mix · B');
+assert(!p.replaceUpcoming([{id:'stale'}],guard,'Stale'));assert(!p.replaceUpcoming([],p.status(),'Empty'));
+const changed=p.status();p.next();assert(!p.replaceUpcoming([{id:'stale'}],changed,'Stale'));p.previous();assert(!p.replaceUpcoming([{id:'stale'}],changed,'Stale'),'returning to the seed still invalidates a request');
+p.pause();const paused=p.status(),pausedPlays=plays;assert(p.replaceUpcoming([{id:'paused'}],paused,'Paused mix'));assert.equal(plays,pausedPlays);assert.equal(p.status().state,'Paused');
+p.enqueue([{id:'edit'}],false);assert.equal(p.status().mixLabel,'');
+l.forget();assert(!storage[key]);console.log('PASS: queue edits preserve audio, current removal, repeat, paused metadata-only restore, bounded persistence, stale requests, normalization/peak limits, idle fullscreen and atomic mix replacement.');

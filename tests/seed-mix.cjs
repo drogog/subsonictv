@@ -1,0 +1,22 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+function setup() {
+  const requests=[],timers=new Map(); let next=0,result;
+  const c={SUBSONIC_CONFIG:{url:'mock',username:'test'},localStorage:{getItem(){return null;}},setTimeout(fn){timers.set(++next,fn);return next;},clearTimeout(id){timers.delete(id);},MusicAPI:{request(m,p,cb){const r={m,p,cb,cancel(){this.cancelled=true;}};requests.push(r);return r;}}};
+  vm.createContext(c);for(const name of ['catalog','mix','seed-mix'])vm.runInContext(fs.readFileSync('subsonic-tv/js/'+name+'.js','utf8'),c);
+  return {c,requests,timers,start(seed,kind){return c.SeedMix.build(seed,kind,(error,value)=>{result={error,value};});},reply(data,error){requests.at(-1).cb(error||null,data);},get result(){return result;}};
+}
+const seed={id:'s',title:'Song',artist:'Artist',artistId:'ar',album:'Album',albumId:'al',genre:'Jazz'};
+let t=setup();t.start(seed,'track');assert.equal(t.requests[0].m,'getSimilarSongs2');assert.equal(t.requests[0].p.id,'s');
+t.reply({similarSongs2:{song:[seed,{id:'a'},{id:'a'},{id:'video',isVideo:true},...Array.from({length:250},(_,i)=>({id:'c'+i}))]}});
+assert(!t.result.error);assert.equal(t.result.value.tracks.length,50);assert.equal(new Set(t.result.value.tracks.map(x=>x.id)).size,50);assert(!t.result.value.tracks.some(x=>x.id==='s'||x.id==='video'));assert.equal(t.result.value.method,'Server recommendations');assert.equal(t.timers.size,0);
+t=setup();t.start(seed,'track');t.reply({},'Unsupported');assert.equal(t.requests.at(-1).p.id,'ar');t.reply({similarSongs2:{song:[]}});assert.equal(t.requests.at(-1).m,'getRandomSongs');assert.equal(t.requests.at(-1).p.genre,'Jazz');t.reply({randomSongs:{song:[{id:'j'}]}});assert.equal(t.result.value.method,'Genre tags · Jazz');
+t=setup();t.start(seed,'album');assert.equal(t.requests[0].m,'getAlbum');t.reply({album:{name:'Album',genre:'Blues',song:[{id:'albumSong',genre:'Rock'}]}});assert.equal(t.requests.at(-1).p.genre,'Blues','album tags override the playing track genre');t.reply({randomSongs:{song:[{id:'blues'}]}});assert(t.result.value.label.includes('Album mix'));
+t=setup();t.start(seed,'artist');assert.equal(t.requests[0].m,'getArtist');t.reply({artist:{album:[{id:'comp'}]}});t.reply({album:{song:[seed,{id:'same',artistId:'ar'},{id:'other',artistId:'other'},{id:'collab',artists:[{id:'ar'}]},{id:'name-only',artist:'Artist'}]}});assert.deepEqual([...t.result.value.tracks.map(x=>x.id)].sort(),['collab','same']);
+t=setup();t.start({id:'s'},'artist');assert.equal(t.requests[0].m,'getSong');t.reply({song:{...seed,artistId:undefined,artists:[{id:'ar'}]}});assert.equal(t.requests.at(-1).p.id,'ar');t.reply({artist:{album:[]}});assert(t.result.error.includes('No other songs'));
+t=setup();t.start({id:'s'},'album');t.reply({song:{id:'s'}});assert(t.result.error.includes('album ID'));assert.equal(t.requests.length,1);
+t=setup();t.start(seed,'artist');t.reply({artist:{album:Array.from({length:100},(_,i)=>({id:'album'+i}))}});for(let i=0;i<8;i++)t.reply({album:{song:[{id:'song'+i,artistId:'ar'}]}});assert.equal(t.requests.length,9);assert(t.result.value.partial);assert.equal(t.result.value.tracks.length,8);
+t=setup();const handle=t.start(seed,'track'),old=t.requests[0];handle.cancel();assert(old.cancelled);old.cb(null,{similarSongs2:{song:[{id:'late'}]}});assert.equal(t.result,undefined);assert.equal(t.timers.size,0);
+t=setup();t.start(seed,'track');const pending=t.requests[0];[...t.timers.values()][0]();assert(pending.cancelled);assert(t.result.error.includes('timed out'));pending.cb(null,{similarSongs2:{song:[{id:'late'}]}});assert(t.result.error.includes('timed out'));
+t=setup();t.start(seed,'album');t.reply({},'Offline');assert.equal(t.result.error,'Offline');assert.equal(t.result.value.tracks.length,0);
+t=setup();t.start({...seed,radio:true},'track');assert.equal(t.requests.length,0);assert(t.result.error);assert.equal(t.timers.size,0);
+console.log('PASS: seeded recommendations, tag fallback, album tags, strict artist IDs, missing metadata, bounded requests/results, cancellation, timeout and errors.');

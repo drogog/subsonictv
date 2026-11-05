@@ -18,3 +18,7 @@ c.AppSettings.values.quality=1;p.queue(tracks,0);assert.equal(engines.length,4);
 c.AppSettings.values.engine=0;p.queue([{id:'aac',suffix:'m4a'}],0);assert.equal(engines.length,4);
 p.queue(tracks,1);engines[4].ready();engines[4].end();assert.equal(state.state,'Finished');p.play();assert.equal(engines.length,6);engines[5].ready();p.stop();assert(engines[5].paused);assert.equal(state.state,'Stopped');
 console.log('PASS: streaming queue, duration, pause/resume, restart, EOF/advance, stale callbacks, no fullscreen handover, fallback at position, radio, quality and compatibility mode.');
+p.queue(tracks,0);const mixEngine=engines.at(-1),engineCount=engines.length;mixEngine.ready();mixEngine.at=46;
+assert(p.replaceUpcoming([{id:'mix-next',suffix:'mp3'}],p.status(),'Track mix'));
+assert.equal(engines.length,engineCount);assert(!mixEngine.stopped);assert(!mixEngine.paused);assert.equal(p.status().time,46);assert.equal(p.tracks()[1].id,'mix-next');
+console.log('PASS: applying a mix keeps the incremental decoder and current PCM stream running.');
