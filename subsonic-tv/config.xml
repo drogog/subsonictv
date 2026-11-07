@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
-        id="https://local.subsonic-tv/app" version="0.15.3" viewmodes="maximized">
+        id="https://local.subsonic-tv/app" version="0.17.0" viewmodes="maximized">
   <tizen:application id="SubsonicTV.SubsonicTV" package="SubsonicTV" required_version="2.3"/>
   <content src="index.html"/>
   <name>SubsonicTV</name>

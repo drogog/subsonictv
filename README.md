@@ -10,9 +10,10 @@ Created by **Dramak**. Current widget version: **0.15.3**.
 
 - Albums, artists, playlists, all songs, search, server favourites and configured internet radio.
 - A–Z filters, album shuffle, full-library shuffle and three Track Mix modes: weighted discovery, random songs, or a selected genre.
+- Now Playing seed mixes: track recommendations, album genres and artist-only shuffle, without restarting the current song.
 - Editable queue with Play next, Add to queue, reorder and remove; repeat one/all and paused session restore.
 - Classic, Lounge bottom-dock and Midnight layouts, with adjustable colours.
-- Fullscreen cover art, ambient motion, four reactive visualizers, and a spinning LP whose tonearm follows track progress.
+- Fullscreen cover art, ambient motion, seven reactive visualizers, and a spinning LP whose tonearm follows track progress.
 - Original MP3/FLAC streaming through an incremental decoder, plus TV playback for other formats. Optional server transcoding, play/pause fades and ReplayGain attenuation.
 - Configurable idle fullscreen and foreground screensaver suppression.
 
@@ -79,7 +80,9 @@ $targetName = 'YOUR_TARGET_NAME'
 
 Use the same app identity and author certificate for updates. An installation rejected for certificate mismatch needs the original signing identity or a deliberate uninstall/reinstall; uninstalling can clear TV-local settings.
 
-On first launch, open **Settings → Server setup**. Enter the server URL, username and password, then **Save and test**. The URL must be reachable from the TV; `localhost` would refer to the TV itself. The app saves a Subsonic token and salt, not the plaintext password. These are still reusable credentials stored on the TV. No account or device details are included in this repository.
+On first launch, open **Settings → Server setup**. Enter **Address** (hostname/IP and optional `/base/path`), a separate **Port**, **SSL** on for HTTPS or off for HTTP, then username and password. Choose **Save and connect**. A blank port uses 443 with SSL or 80 without it. Pasting a complete URL also fills the port and SSL fields. The address must be reachable from the TV; `localhost` would refer to the TV itself. The app saves a Subsonic token and salt, not the plaintext password. These are still reusable credentials stored on the TV. No account or device details are included in this repository.
+
+Under **Server setup → Saved servers**, OK tests and connects to a profile; Yellow edits it. **Add server** creates a separate login (up to eight). Switching restarts the app after a successful test, keeping playback and the active server unchanged on failure or cancellation. Existing single-server settings migrate automatically. Remove an inactive profile from its edit screen; switch away before removing the active one. Saved tokens are never reused automatically for a changed address or username.
 
 ## Remote controls
 
@@ -100,8 +103,9 @@ Media play/pause/stop and next/previous keys are also supported. TV volume stays
 
 - **Default fullscreen** chooses Cover, Ambient, Music visualization or Spinning LP. Switching with Up is temporary; reopening uses the saved default.
 - **Listening preferences** includes idle fullscreen (Off / 30 / 60 / 120 / 300 seconds), repeat, queue restore, and Track/Album ReplayGain. Album mode falls back to track tags. Normalization attenuates only, uses available peak metadata and never boosts above source volume. Missing tags remain unchanged; it does not scan files for loudness.
-- **Visualization settings** includes style, effect, sensitivity, red saturation tips and Keep screen awake. Red tips indicate the visualizer’s display ceiling, not measured audio distortion. Screensaver suppression applies while the app is visible and does not override a TV sleep timer.
+- **Visualization settings** includes Spectrum bars, Mirror spectrum, Waveform, Orbit, Ribbon, Halo and Dot matrix. Effects are Clean, Soft trails, Bass pulse, Colour flow and Zoom pulse. Soft trails use a fixed short geometry history over a fresh opaque background, preventing permanent fade residue. Sensitivity, red saturation tips (bars/Orbit) and Keep screen awake are also available. Red tips indicate the visualizer’s display ceiling, not measured audio distortion. Screensaver suppression applies while the app is visible and does not override a TV sleep timer.
 - **Reactive playback** requires original MP3/FLAC and HTTP byte-range support. The custom decoder keeps a small buffer ahead rather than downloading the whole track. Other codecs, radio and requested transcodes use the TV media path, where reactive visualization may be unavailable. A failed decoder falls back to TV playback where possible.
+- **Now Playing mixes:** open **Song options → Start mix** (or press Red on Now Playing). Track mix tries server recommendations, then genre tags or the artist’s library; Album mix uses the album’s genres, falling back to artist recommendations/library; Artist mix shuffles only songs identified as belonging to the current artist. The current song continues while up to 50 upcoming songs replace the old upcoming queue. Queue shows the seed and method used. Back cancels loading; unavailable album/artist IDs disable those choices. Artist sampling is limited to eight albums.
 - **Session restore** saves up to 500 nearby queue entries as metadata only. It opens paused; Play restarts the selected song from the beginning. Arbitrary seeking and gapless/crossfade playback are not implemented. Play/pause fade is available.
 - **All Songs shuffle** scans library metadata before starting; Back cancels. Browsing stays paged. No audio or cover collection is downloaded for this scan.
 - **Radio** needs a direct HTTP(S) audio URL configured in the server. Playlist URLs and in-stream song metadata are not parsed.
@@ -115,11 +119,13 @@ node tests/preview.cjs
 # Open .preview/index.html in a browser.
 ```
 
-The test runner executes 19 offline checks using Node’s built-in modules. Preview fragments include `#dock`, `#player`, `#lp`, `#viz0` through `#viz3`, `#settings`, `#search`, `#queue` and `#midnight`. Preview data is fictional; it makes no requests to a real music server.
+The test runner executes 21 offline checks using Node’s built-in modules. Preview fragments include `#dock`, `#player`, `#lp`, `#viz0` through `#viz6`, `#settings`, `#search`, `#queue` and `#midnight`. Preview data is fictional; it makes no requests to a real music server.
 
 Optional `tests/live-*.cjs` checks require a locally configured, ignored `subsonic-tv/js/config.js`; they are not part of the offline suite. Keep credentials, signed packages and signing certificates out of commits. Device-only decoder testing is available in **Settings → Audio quality → Streaming decoder test**.
 
 See [architecture and storage](docs/architecture.md) for implementation details and [screenshot generation](docs/screenshots.md) to reproduce the images.
+
+See [Now Playing mixes](docs/roadmap.md) for behaviour, fallback rules and remaining device checks.
 
 ## Libraries and attribution
 

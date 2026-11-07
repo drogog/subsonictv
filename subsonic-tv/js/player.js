@@ -4,6 +4,7 @@ var MusicPlayer = (function () {
   var queue = [], index = -1, state = 'Stopped', notify = function () {};
   var fadeTimer = null, pendingPause = false;
   var sessionReady = false, revision = 0, unloaded = false, level = 1, levelLabel = '', gainRequest = null;
+  var playbackRevision = 0, mixLabel = '';
   var format = '', formatRequest = null, bindings = [];
   var context = null, analyser = null, source = null, bins = null, analysisMessage = 'Spectrum off', watchdog = null;
   var probeTimer = null, oscillator = null, mute = null, probePassed = false;
@@ -155,7 +156,7 @@ var MusicPlayer = (function () {
     }, 50);
   }
   function status() { return { track: queue[index], index: index, count: queue.length,
-    state: state, format:format, revision:revision, normalization:levelLabel, repeat:typeof AppSettings !== 'undefined' ? AppSettings.values.repeat || 0 : 0, time: audio.currentTime || 0, duration: queue[index] && queue[index].radio ? 0 : (isFinite(audio.duration) ? audio.duration : 0) }; }
+    state: state, format:format, revision:revision, playbackRevision:playbackRevision, mixLabel:mixLabel, normalization:levelLabel, repeat:typeof AppSettings !== 'undefined' ? AppSettings.values.repeat || 0 : 0, time: audio.currentTime || 0, duration: queue[index] && queue[index].radio ? 0 : (isFinite(audio.duration) ? audio.duration : 0) }; }
   function update() { if (sessionReady && typeof Listening !== 'undefined') { Listening.save(queue,index,revision); } notify(status()); }
   function loadGain() {
     var selected = queue[index];
@@ -183,6 +184,7 @@ var MusicPlayer = (function () {
   function start(position) {
     var params;
     if (position < 0 || position >= queue.length) { return; }
+    playbackRevision++;
     if (analyser && !source) { releaseGraph(); analysisMessage = 'Spectrum off'; }
     if (source) { releaseGraph(); replaceAudio(0,false,null); analysisMessage = 'Spectrum off — open fullscreen to enable for this track'; }
     cancelFade();
@@ -237,11 +239,18 @@ var MusicPlayer = (function () {
     refreshGain:refreshGain,
     refreshStatus:update,
     tracks:function () { return queue.slice(0); },
+    replaceUpcoming:function (tracks, expected, label) {
+      if (!expected || queue[index] !== expected.track || index !== expected.index || revision !== expected.revision || playbackRevision !== expected.playbackRevision || !queue[index] || queue[index].radio) { return false; }
+      var seen = {}, next = [], i, t; seen['$' + queue[index].id] = true;
+      for (i = 0; i < tracks.length && next.length < 50; i++) { t = tracks[i]; if (t && t.id && !t.radio && !t.isVideo && !seen['$' + t.id]) { seen['$' + t.id] = true; next.push(t); } }
+      if (!next.length) { return false; }
+      queue = queue.slice(0,index + 1).concat(next); mixLabel = label || ''; revision++; sessionReady = true; update(); return true;
+    },
     jump:start,
     restore:function () { if (typeof Listening === 'undefined') { return false; } var saved = Listening.restore(); sessionReady = true; if (!saved) { return false; } queue = saved.tracks; index = saved.index; revision++; unloaded = true; state = 'Paused'; format = typeof AudioFormat !== 'undefined' ? AudioFormat.describe(queue[index],'',true) : ''; update(); return true; },
-    enqueue:function (tracks,next) { sessionReady = true; var at = next ? index + 1 : queue.length; if (!tracks.length) { return; } queue = queue.slice(0,at).concat(tracks,queue.slice(at)); revision++; if (index < 0) { index = 0; unloaded = true; state = 'Paused'; } update(); },
-    move:function (from,to) { if (from < 0 || to < 0 || from >= queue.length || to >= queue.length || from === to) { return; } var current = index, moved = queue.splice(from,1)[0]; queue.splice(to,0,moved); if (current === from) { index = to; } else if (from < current && to >= current) { index--; } else if (from > current && to <= current) { index++; } revision++; update(); },
-    remove:function (at) { if (at < 0 || at >= queue.length) { return; } var current = at === index, playing = !audio.paused; queue.splice(at,1); revision++; if (at < index) { index--; } if (current) { cancelFade(); if (gainRequest) { gainRequest.cancel(); gainRequest = null; } if (formatRequest) { formatRequest.cancel(); formatRequest = null; } selectOutput(false); index = Math.min(index,queue.length-1); unloaded = index >= 0; state = 'Paused'; format = ''; if (playing && index >= 0) { start(index); return; } } if (!queue.length) { index = -1; unloaded = false; state = 'Stopped'; } update(); },
+    enqueue:function (tracks,next) { sessionReady = true; var at = next ? index + 1 : queue.length; if (!tracks.length) { return; } queue = queue.slice(0,at).concat(tracks,queue.slice(at)); mixLabel = ''; revision++; if (index < 0) { index = 0; unloaded = true; state = 'Paused'; } update(); },
+    move:function (from,to) { if (from < 0 || to < 0 || from >= queue.length || to >= queue.length || from === to) { return; } var current = index, moved = queue.splice(from,1)[0]; queue.splice(to,0,moved); if (current === from) { index = to; } else if (from < current && to >= current) { index--; } else if (from > current && to <= current) { index++; } mixLabel = ''; revision++; update(); },
+    remove:function (at) { if (at < 0 || at >= queue.length) { return; } var current = at === index, playing = !audio.paused; queue.splice(at,1); mixLabel = ''; revision++; if (at < index) { index--; } if (current) { cancelFade(); if (gainRequest) { gainRequest.cancel(); gainRequest = null; } if (formatRequest) { formatRequest.cancel(); formatRequest = null; } selectOutput(false); index = Math.min(index,queue.length-1); unloaded = index >= 0; state = 'Paused'; format = ''; if (playing && index >= 0) { start(index); return; } } if (!queue.length) { index = -1; unloaded = false; state = 'Stopped'; } update(); },
     analysis:function (enabled) { if (enabled) { enableAnalysis(); } else { disableAnalysis(); } },
     spectrum:function () { if (audio.streamAudio || audio.nativeAudio) { return audio.spectrum(); } if (source && analyser) { try { analyser.getByteFrequencyData(bins); return bins; } catch (error) {} } return null; },
     waveform:function () { return audio.streamAudio ? audio.waveform() : null; },
@@ -249,17 +258,17 @@ var MusicPlayer = (function () {
     analysisStatus:function () { return audio.streamAudio || audio.nativeAudio ? audio.analysisStatus() : analysisMessage; },
     analysisAvailable:analysisAvailable,
     listen: function (callback) { notify = callback; update(); },
-    queue: function (tracks, position) { sessionReady = true; queue = tracks.slice(0); revision++; start(position); },
+    queue: function (tracks, position) { sessionReady = true; mixLabel = ''; queue = tracks.slice(0); revision++; start(position); },
     radio: function (stations, position) {
       var tracks = [], i;
       for (i = 0; i < stations.length; i++) { tracks.push({id:'radio:' + stations[i].id, title:stations[i].name, artist:'Internet radio', radio:true, streamUrl:stations[i].streamUrl}); }
-      sessionReady = true; queue = tracks; revision++; start(position);
+      sessionReady = true; mixLabel = ''; queue = tracks; revision++; start(position);
     },
     toggle: function () { if (!queue.length) { return; } if (audio.paused || pendingPause) { play(); } else { pause(); } },
     play: function () { if (queue.length) { play(); } },
     pause: pause,
-    stop: function () { cancelFade(); finishPause(); state = 'Stopped'; update(); },
+    stop: function () { playbackRevision++; cancelFade(); finishPause(); state = 'Stopped'; update(); },
     next: function () { start(index + 1 < queue.length ? index + 1 : typeof AppSettings !== 'undefined' && AppSettings.values.repeat === 2 ? 0 : index + 1); },
-    previous: function () { if (!(queue[index] && queue[index].radio) && audio.currentTime > 3) { audio.currentTime = 0; } else { start(index - 1); } }
+    previous: function () { if (!(queue[index] && queue[index].radio) && audio.currentTime > 3) { playbackRevision++; audio.currentTime = 0; update(); } else { start(index - 1); } }
   };
 }());

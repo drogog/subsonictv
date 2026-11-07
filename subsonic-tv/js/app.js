@@ -64,7 +64,7 @@
     }
     batch();
   }
-  function text(id, value) { $(id).textContent = value; }
+  function text(id, value) { var node = $(id); if (node.textContent !== value) { node.textContent = value; } }
   function log(message) {
     var el = $('debug-log'); el.appendChild(document.createTextNode(message + '\n'));
     while (el.childNodes.length > 80) { el.removeChild(el.firstChild); }
@@ -121,6 +121,8 @@
   }
   function render(force) {
     var size, page, start, end, i, item, row, label, detail, artwork;
+    // A fetch can finish behind Now Playing. Invalidate before its early return.
+    if (force) { renderedScreen = null; }
     $('library').className = nowPlaying ? 'hidden' : '';
     $('now-playing').className = nowPlaying ? '' : 'hidden';
     drawNav();

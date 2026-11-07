@@ -82,7 +82,7 @@ var ArtworkView = (function () {
       else if (code === 37 || code === 10232) { MusicPlayer.previous(); }
       else if (code === 39 || code === 10233) { MusicPlayer.next(); }
       else if (code === 38) { pendingAnalysis = false; mode = (mode + 1) % 4; if (mode === 2) { MusicPlayer.analysis(true); } else if (mode === 0) { MusicPlayer.analysis(false); } render(); animate(); }
-      else if (mode === 2 && (code === 40 || code === 405)) { var name = code === 40 ? 'visualizer' : 'effect'; AppSettings.set(name,((AppSettings.values[name] || 0) + 1) % (code === 40 ? 4 : 3)); render(); animate(); }
+      else if (mode === 2 && (code === 40 || code === 405)) { var name = code === 40 ? 'visualizer' : 'effect'; AppSettings.set(name,((AppSettings.values[name] || 0) + 1) % (code === 40 ? AppSettings.visualizerNames.length : AppSettings.effectNames.length)); render(); animate(); }
       else if (code === 415) { MusicPlayer.play(); } else if (code === 19) { MusicPlayer.pause(); } else if (code === 413) { MusicPlayer.stop(); }
       else if (code !== 40) { return false; }
       return true;

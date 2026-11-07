@@ -9,9 +9,22 @@ var colours=['#80515c','#4e716a','#4b567e','#ab744e','#6e4d77','#4d6c87','#7b865
 var MusicAPI={url:function(method,params){var c=colours[Number(params.id)%8];return 'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="'+c+'"/><circle cx="130" cy="90" r="80" fill="none" stroke="#ffffff" stroke-opacity=".25" stroke-width="24"/><path d="M0 160L200 50V200H0" fill="#101014" fill-opacity=".3"/></svg>');},request:function(method,params,cb){var t=setTimeout(function(){cb(null,{albumList2:{album:names.map(function(n,i){return {id:String(i),coverArt:String(i),name:n,artist:['Various Artists','The Evening Sessions','Piano Works','Sunday Club'][i%4]};})}});},10);return {cancel:function(){clearTimeout(t);}};}};`;
 html=html.replace(/<script src="js\/[^\"]+"><\/script>/g,'');
 html=html.replace(/<script src="\$WEBAPIS[^\"]+"><\/script>/g,'');
-const modules=['settings-store','format','native-audio','listening','player','catalog','settings-ui','visualizer','turntable','artwork','music-panel','app'].map(name=>'<script>'+fs.readFileSync('subsonic-tv/js/'+name+'.js','utf8')+'</script>').join('');
+const modules=['settings-store','format','native-audio','listening','player','catalog','mix','seed-mix','settings-ui','visualizer','turntable','artwork','music-panel','app'].map(name=>'<script>'+fs.readFileSync('subsonic-tv/js/'+name+'.js','utf8')+'</script>').join('');
 const previewActions=`setTimeout(function(){
   if(location.hash==='#midnight'){AppSettings.set('theme',2);AppSettings.set('focus',2);AppSettings.apply();function key(code){document.dispatchEvent(new KeyboardEvent('keydown',{keyCode:code,which:code,bubbles:true}));}key(10009);for(var m=0;m<8;m++){key(40);}}
+  if(location.hash.indexOf('#mix')===0){
+    AppSettings.set('theme',location.hash==='#mix-dock'?1:location.hash==='#mix-midnight'?2:0);AppSettings.apply();
+    MusicPlayer.enqueue([{id:'0',title:'Late night stories',artist:'The Evening Sessions',album:'The quiet hours',artistId:'artist',albumId:'album',genre:'Jazz',coverArt:'0',suffix:'flac'}],false);
+    document.dispatchEvent(new KeyboardEvent('keydown',{keyCode:406,which:406,bubbles:true}));
+    MusicPanel.actions(MusicPlayer.status().track,0);
+    setTimeout(function(){MusicPanel.handle({keyCode:40});MusicPanel.handle({keyCode:40});MusicPanel.handle({keyCode:13});},50);
+  }
+  if(location.hash==='#server'||location.hash==='#servers'){
+    var first={url:'http://music.example:4533/music',username:'listener',token:'00000000000000000000000000000000',salt:'preview'};
+    AppSettings.saveServer(first);AppSettings.saveServer({url:'https://second.example',username:'listener',token:'00000000000000000000000000000000',salt:'preview'});
+    Object.keys(first).forEach(function(k){SUBSONIC_CONFIG[k]=first[k];});
+    SettingsPanel.open(null,location.hash==='#server'?'server':'servers');
+  }
   if(location.hash==='#search'){MusicPanel.search();}
   if(location.hash==='#queue'){MusicPlayer.enqueue(names.map(function(n,i){return {id:String(i),title:n,artist:'The Evening Sessions'};}),false);MusicPanel.queue();}
   if(location.hash==='#listening'){SettingsPanel.open(null,'playback');}
@@ -25,6 +38,6 @@ const previewActions=`setTimeout(function(){
   if(location.hash==='#keyboard'){SettingsPanel.handle({keyCode:13});SettingsPanel.handle({keyCode:13});}
   if(location.hash==='#cover'||location.hash==='#ambient'){AppSettings.set('display',location.hash==='#ambient'?1:0);ArtworkView.update({track:{title:'Late night stories',artist:'Various Artists',coverArt:'0'},format:'OGG stream · from FLAC · Source: 16-bit / 44.1 kHz / 828 kbps',state:'Playing'});ArtworkView.open();}
 },100);`;
-html=html.replace('</body>','<script>'+mock+'</script>'+modules+'<script>'+previewActions+'</script></body>');
+html=html.replace('</body>',()=>'<script>'+mock+'</script>'+modules+'<script>'+previewActions+'</script></body>');
 fs.writeFileSync('.preview/index.html',html);
 console.log('Credential-free layout preview prepared.');
