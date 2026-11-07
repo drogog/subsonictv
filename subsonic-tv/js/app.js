@@ -19,7 +19,8 @@
   function canShuffle() { return !nowPlaying && screen && screen.kind === 'tracks' && !screen.autoPlay; }
   var screen, stack = [], roots = {}, request, serial = 0, busy = false, retry = null;
   var navIndex = 0, section = 0, zone = 'content', nowPlaying = false, control = 1;
-  var renderedPage = -1, renderedScreen = null, rows = [], lastCover = null, lastTrack = null;
+  var renderedPage = -1, renderedScreen = null, rows = [];
+  var latestPlayback, miniPlayer = {}, fullPlayer = {};
   var letters = ['All','#'].concat('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')), letterFocus = 0, letterNodes = [], albumIndex = null, indexing = false;
   function hasLetters() { return !nowPlaying && !stack.length && (section === 1 || section === 2); }
   function initial(name) {
@@ -125,6 +126,7 @@
     if (force) { renderedScreen = null; }
     $('library').className = nowPlaying ? 'hidden' : '';
     $('now-playing').className = nowPlaying ? '' : 'hidden';
+    syncPlayerViews();
     drawNav();
     drawLetters();
     $('shuffle-control').className = canShuffle() ? 'shuffle-control' + (zone === 'shuffle' ? ' focused' : '') : 'hidden';
@@ -283,40 +285,72 @@
     if (screen.remote && (next < 0 || next >= screen.items.length)) { turnPage(next < 0 ? -1 : 1); return; }
     screen.focus = Math.max(0, Math.min(screen.items.length - 1, next)); render();
   }
-  MusicPlayer.listen(function (state) {
-    var track = state.track, percent = Math.min(100, state.duration ? state.time / state.duration * 100 : 0) + '%', ids, i;
-    ArtworkView.update(state);
-    if (typeof MusicPanel !== 'undefined') { MusicPanel.update(); }
-    text('repeat-state',['','Repeat one','Repeat all'][state.repeat || 0]);
-    if (typeof IdleFullscreen !== 'undefined') { IdleFullscreen.update(state,busy || collecting || SettingsPanel.isOpen() || MusicPanel.isOpen() || ArtworkView.isOpen() || (typeof DecoderBench !== 'undefined' && DecoderBench.isOpen()) || $('debug').className === 'debug'); }
-    if (typeof ScreenAwake !== 'undefined') { ScreenAwake.update(state); }
-    text('track-format', state.format || ''); text('mini-format', state.format || '');
-    if (!track) { lastTrack = null; lastCover = null; text('mini-title','Nothing playing'); text('mini-artist','Choose music or add songs to your queue.'); text('track-title','Choose music'); text('track-artist','Play an album or playlist from your library.'); text('mini-state',''); text('playback-state',''); text('queue-control','Queue'); setToggle('Play'); text('playback-time','0:00 / 0:00'); $('cover').className = $('mini-cover').className = 'hidden'; $('cover').removeAttribute('src'); $('mini-cover').removeAttribute('src'); $('progress-fill').style.width = $('mini-progress').style.width = '0%'; return; }
-    if (!track.radio && rememberedTrack !== track && state.time >= Math.min(30, (state.duration || track.duration || 60) / 2)) { TrackMix.remember(track); rememberedTrack = track; }
-    if (lastTrack !== track) {
-      lastTrack = track;
-      text('mini-title', track.title || 'Untitled'); text('mini-artist', track.artist || track.album || '');
-      text('track-title', track.title || 'Untitled'); text('track-artist', [track.artist,track.album].filter(function (value) { return !!value; }).join(' · '));
+  function paintPlayer(view, mini) {
+    var state = latestPlayback, previous = view.state, track = state.track;
+    if (state === previous) { return; }
+    var trackChanged = !previous || track !== previous.track;
+    if (trackChanged) {
+      text(mini ? 'mini-title' : 'track-title',track ? track.title || 'Untitled' : mini ? 'Nothing playing' : 'Choose music');
+      var artist = track ? (mini ? track.artist || track.album || '' : [track.artist,track.album].filter(Boolean).join(' · ')) :
+        (mini ? 'Choose music or add songs to your queue.' : 'Play an album or playlist from your library.');
+      text(mini ? 'mini-artist' : 'track-artist',artist);
     }
-    text('mini-state',state.state === 'Playing' ? '' : state.state); text('playback-state',state.state === 'Playing' ? (track.radio ? 'Live radio' : '') : state.state); text('queue-control','Queue · ' + (state.index + 1) + ' / ' + state.count);
-    text('playback-time', track.radio ? 'LIVE STREAM' : clock(state.time) + ' / ' + clock(state.duration || track.duration));
-    setToggle(state.state === 'Playing' || state.state === 'Buffering' || state.state === 'Loading' ? (track.radio ? 'Stop' : 'Pause') : 'Play');
-    $('progress-fill').style.width = percent; $('mini-progress').style.width = percent;
-    if (lastCover !== (track.coverArt || '')) {
-      lastCover = track.coverArt || ''; ids = ['cover', 'mini-cover'];
-      for (i = 0; i < ids.length; i++) {
-        $(ids[i]).className = lastCover ? '' : 'hidden';
-        $(ids[i]).onerror = function () { this.className = 'hidden'; };
-        if (lastCover) { $(ids[i]).src = MusicAPI.url('getCoverArt', {id:lastCover, size:300}); } else { $(ids[i]).removeAttribute('src'); }
+    var coverId = track && track.coverArt || '';
+    if (coverId !== view.coverId) {
+      var image = $(mini ? 'mini-cover' : 'cover');
+      image.className = coverId ? '' : 'hidden';
+      image.onerror = function () { this.className = 'hidden'; };
+      if (coverId) { image.src = MusicAPI.url('getCoverArt',{id:coverId,size:300}); }
+      else { image.removeAttribute('src'); }
+      view.coverId = coverId;
+    }
+    if (!previous || state.format !== previous.format) { text(mini ? 'mini-format' : 'track-format',state.format || ''); }
+    if (trackChanged || state.state !== previous.state) {
+      var label = track ? state.state : '';
+      if (label === 'Playing') { label = !mini && track.radio ? 'Live radio' : ''; }
+      text(mini ? 'mini-state' : 'playback-state',label);
+      if (!mini) {
+        var running = track && (state.state === 'Playing' || state.state === 'Buffering' || state.state === 'Loading');
+        setToggle(running ? (track.radio ? 'Stop' : 'Pause') : 'Play');
       }
     }
+    if (!mini && (trackChanged || state.index !== previous.index || state.count !== previous.count)) {
+      text('queue-control',track ? 'Queue · ' + (state.index + 1) + ' / ' + state.count : 'Queue');
+    }
+    if (!mini && (!previous || state.repeat !== previous.repeat)) { text('repeat-state',['','Repeat one','Repeat all'][state.repeat || 0]); }
+    if (trackChanged || state.time !== previous.time || state.duration !== previous.duration) {
+      var percent = track && state.duration ? Math.min(100,state.time / state.duration * 100) : 0;
+      if (percent !== view.percent) { $(mini ? 'mini-progress' : 'progress-fill').style.width = percent + '%'; view.percent = percent; }
+      if (!mini) { text('playback-time',track && track.radio ? 'LIVE STREAM' : clock(track && state.time) + ' / ' + clock(track && (state.duration || track.duration))); }
+    }
+    view.state = state;
+  }
+  function syncPlayerViews() {
+    if (!latestPlayback || document.hidden || ArtworkView.isOpen() || (typeof DecoderBench !== 'undefined' && DecoderBench.isOpen())) { return; }
+    if (!dock()) { paintPlayer(miniPlayer,true); }
+    if (nowPlaying && !SettingsPanel.isOpen() && !(typeof MusicPanel !== 'undefined' && MusicPanel.coversPlayer())) {
+      paintPlayer(fullPlayer,false);
+    }
+  }
+  MusicPlayer.listen(function (state) {
+    var track = state.track, previous = latestPlayback;
+    latestPlayback = state;
+    ArtworkView.update(state);
+    if (typeof MusicPanel !== 'undefined' && MusicPanel.isOpen() &&
+        (!previous || previous.track !== track || previous.index !== state.index || previous.state !== state.state ||
+         previous.revision !== state.revision || previous.playbackRevision !== state.playbackRevision)) { MusicPanel.update(); }
+    if (typeof IdleFullscreen !== 'undefined') { IdleFullscreen.update(state,busy || collecting || SettingsPanel.isOpen() || MusicPanel.isOpen() || ArtworkView.isOpen() || (typeof DecoderBench !== 'undefined' && DecoderBench.isOpen()) || $('debug').className === 'debug'); }
+    if (typeof ScreenAwake !== 'undefined') { ScreenAwake.update(state); }
+    if (track && !track.radio && rememberedTrack !== track && state.time >= Math.min(30,(state.duration || track.duration || 60) / 2)) { TrackMix.remember(track); rememberedTrack = track; }
+    syncPlayerViews();
   });
+  document.addEventListener('visibilitychange',syncPlayerViews);
   if (typeof MusicPanel !== 'undefined') { MusicPanel.onPlay(function () { nowPlaying = true; zone = 'content'; control = 1; render(); }); }
   document.addEventListener('keydown', function (event) {
     var code = event.keyCode, handled = true;
     if (typeof IdleFullscreen !== 'undefined') { IdleFullscreen.touch(); }
-    if (typeof DecoderBench !== 'undefined' && DecoderBench.handle(event)) { event.preventDefault(); return; }
-    if ((typeof MusicPanel !== 'undefined' && MusicPanel.handle(event)) || SettingsPanel.handle(event) || ArtworkView.handle(event)) { event.preventDefault(); return; }
+    if ((typeof DecoderBench !== 'undefined' && DecoderBench.handle(event)) ||
+        (typeof MusicPanel !== 'undefined' && MusicPanel.handle(event)) || SettingsPanel.handle(event) || ArtworkView.handle(event)) { syncPlayerViews(); event.preventDefault(); return; }
     if (code === 403 && typeof MusicPanel !== 'undefined' && (nowPlaying || zone === 'content' && screen && screen.kind === 'tracks')) { var chosen = nowPlaying ? MusicPlayer.status().track : screen.items[screen.focus]; if (chosen) { MusicPanel.actions(chosen,nowPlaying ? MusicPlayer.status().index : -1); } }
     else if (code === 403) { $('debug').className = $('debug').className === 'debug hidden' ? 'debug' : 'debug hidden'; }
     else if (code === 10009 || code === 27 || code === 8) { back(); }

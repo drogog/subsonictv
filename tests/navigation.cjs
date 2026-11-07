@@ -2,14 +2,14 @@ const fs = require('fs'), vm = require('vm'), assert = require('assert');
 function element() { return {childNodes:[],style:{},className:'',_text:'',
   set textContent(v){this._text=v;this.childNodes=[];},get textContent(){return this._text;},
   appendChild(v){this.childNodes.push(v);},removeChild(v){this.childNodes.splice(this.childNodes.indexOf(v),1);},setAttribute(){},removeAttribute(){}}; }
-const nodes={},requests=[]; let key,queued,radio;
+const nodes={},requests=[],events={}; let key,queued,radio,playback;
 const context={SUBSONIC_CONFIG:{url:'mock',username:'test',token:'test',salt:'test'},
-  document:{getElementById(id){return nodes[id]||(nodes[id]=element());},createElement:element,createTextNode(v){return v;},addEventListener(n,fn){key=fn;}},
+  document:{getElementById(id){return nodes[id]||(nodes[id]=element());},createElement:element,createTextNode(v){return v;},addEventListener(n,fn){events[n]=fn;if(n==='keydown')key=fn;}},
   window:{innerWidth:1280,innerHeight:720,addEventListener(){}},
   MusicAPI:{url(){return 'mock';},request(method,params,callback){const r={method,params,callback,cancel(){this.cancelled=true;}};requests.push(r);return r;}},
   TrackMix:{build(items){return items.slice(0,50);},remember(){}},
   AppSettings:{values:{mixMode:0,theme:0,mixGenre:""},apply(){}}, SettingsPanel:{handle(){return false;},open(){}}, ArtworkView:{update(){},handle(){return false;},open(){}},
-  MusicPlayer:{listen(){},queue(items,index){queued={items,index};},radio(items,index){radio={items,index};}}};
+  MusicPlayer:{listen(fn){playback=fn;},queue(items,index){queued={items,index};},radio(items,index){radio={items,index};}}};
 vm.createContext(context);vm.runInContext(fs.readFileSync('subsonic-tv/js/catalog.js','utf8'),context);vm.runInContext(fs.readFileSync('subsonic-tv/js/app.js','utf8'),context);
 function press(code){key({keyCode:code,preventDefault(){}});}
 function reply(data){requests[requests.length-1].callback(null,data);}
@@ -63,3 +63,62 @@ press(10009);press(38);context.AppSettings.values.mixMode=2;context.AppSettings.
 context.AppSettings.values.theme=1;press(40);press(40);assert(nodes.navigation.childNodes[7].className.includes('focused'));press(37);assert(nodes.navigation.childNodes[6].className.includes('focused'));press(13);assert.equal(nodes.heading.textContent,'All songs');press(10009);press(38);assert(!nodes.navigation.childNodes[6].className.includes('focused'));
 console.log('PASS: All Songs paging/full-library shuffle, cancellation, genre/random Mix modes and horizontal dock navigation.');
 context.AppSettings.values.theme=0;press(10009);for(let i=0;i<5;i++)press(38);press(13);reply({albumList2:{album:[{id:'shuffle-album',name:'Album'}]}});press(13);const albumSongs=[{id:'aa',title:'A'},{id:'bb',title:'B'},{id:'cc',title:'C'}];reply({album:{song:albumSongs}});press(38);assert(nodes['shuffle-control'].className.includes('focused'));press(13);assert.equal(queued.items.length,3);assert.deepEqual([...queued.items.map(t=>t.id)].sort(),['aa','bb','cc']);assert.deepEqual(albumSongs.map(t=>t.id),['aa','bb','cc']);console.log('PASS: album Shuffle button creates a complete queue without changing album order.');
+
+let settingsOpen = false, fullscreen = false, remembered = 0;
+context.SettingsPanel.isOpen = () => settingsOpen;
+context.ArtworkView.isOpen = () => fullscreen;
+context.ArtworkView.handle = event => {
+  if (fullscreen && event.keyCode === 10009) { fullscreen = false; return true; }
+  return false;
+};
+context.SettingsPanel.handle = event => {
+  if (settingsOpen && event.keyCode === 10009) { settingsOpen = false; return true; }
+  return false;
+};
+context.TrackMix.remember = () => remembered++;
+const lookups = [];
+const getNode = context.document.getElementById;
+context.document.getElementById = id => { lookups.push(id); return getNode(id); };
+const trackA = {title:'A',coverArt:'a'}, trackB = {title:'B',coverArt:'b'};
+function tick(track,time,extra = {}) {
+  lookups.length = 0;
+  playback({track,time,duration:100,state:'Playing',index:0,count:2,format:'FLAC',...extra});
+}
+tick(trackA,5);
+assert.equal(nodes['track-title'].textContent,'A');
+assert.equal(nodes['mini-progress'].style.width,'5%');
+tick(trackA,6);
+assert(!lookups.includes('queue-control') && !lookups.includes('mini-title') && !lookups.includes('track-format'));
+settingsOpen = true;
+tick(trackB,36,{state:'Paused'});
+assert(!lookups.includes('progress-fill') && !lookups.includes('track-title'));
+assert.equal(nodes['mini-title'].textContent,'B');
+assert.equal(nodes['mini-state'].textContent,'Paused');
+assert.equal(remembered,1);
+press(10009);
+assert.equal(nodes['track-title'].textContent,'B');
+assert.equal(nodes['progress-fill'].style.width,'36%');
+assert.equal(nodes['playback-state'].textContent,'Paused');
+context.AppSettings.values.theme = 1;
+settingsOpen = true;
+tick(trackA,48);
+assert.equal(lookups.length,0,'Lounge Settings has no visible playback fields');
+assert.equal(remembered,2,'listening history continues behind Settings');
+press(10009);
+assert.equal(nodes['track-title'].textContent,'A');
+assert.equal(nodes['playback-time'].textContent,'0:48 / 1:40');
+assert.equal(nodes['mini-progress'].style.width,'36%','dock hides the mini-player');
+fullscreen = true;
+tick(trackB,55);
+assert.equal(lookups.length,0);
+press(10009);
+assert.equal(nodes['track-title'].textContent,'B');
+context.document.hidden = true;
+tick(null,0,{state:'Stopped',index:-1,count:0,format:''});
+assert.equal(lookups.length,0);
+context.document.hidden = false;
+events.visibilitychange();
+assert.equal(nodes['track-title'].textContent,'Choose music');
+assert.equal(nodes['queue-control'].textContent,'Queue');
+assert.equal(nodes['progress-fill'].style.width,'0%');
+console.log('PASS: playback ticks update visible fields, retain listening history and immediately catch up on overlay close or resume.');
