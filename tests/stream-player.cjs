@@ -15,8 +15,8 @@ first.options.onupdate({state:'Playing',playedSeconds:80});assert.equal(state.ti
 engines[2].at=12;engines[2].fail();assert.equal(html.src,'b');assert.equal(html.currentTime,12);assert.equal(state.state,'Playing');assert(!p.analysisAvailable());assert(engines[2].stopped);
 p.queue(tracks,0);engines[3].ready();p.radio([{id:'r',name:'Radio',streamUrl:'http://radio.test/live'}],0);assert(engines[3].stopped);assert.equal(html.src,'http://radio.test/live');assert.equal(state.duration,0);
 c.AppSettings.values.quality=1;p.queue(tracks,0);assert.equal(engines.length,4);assert.equal(html.src,'a');c.AppSettings.values.quality=0;c.AppSettings.values.engine=1;p.queue(tracks,0);assert.equal(engines.length,4);
-c.AppSettings.values.engine=0;p.queue([{id:'aac',suffix:'m4a'}],0);assert.equal(engines.length,4);
-p.queue(tracks,1);engines[4].ready();engines[4].end();assert.equal(state.state,'Finished');p.play();assert.equal(engines.length,6);engines[5].ready();p.stop();assert(engines[5].paused);assert.equal(state.state,'Stopped');
+c.AppSettings.values.engine=0;p.queue([{id:'aac',suffix:'m4a'}],0);assert.equal(engines.length,5);assert(engines[4].options.m4a);engines[4].ready();assert(p.analysisAvailable());
+p.queue(tracks,1);engines[5].ready();engines[5].end();assert.equal(state.state,'Finished');p.play();assert.equal(engines.length,7);engines[6].ready();p.stop();assert(engines[6].paused);assert.equal(state.state,'Stopped');
 console.log('PASS: streaming queue, duration, pause/resume, restart, EOF/advance, stale callbacks, no fullscreen handover, fallback at position, radio, quality and compatibility mode.');
 p.queue(tracks,0);const mixEngine=engines.at(-1),engineCount=engines.length;mixEngine.ready();mixEngine.at=46;
 assert(p.replaceUpcoming([{id:'mix-next',suffix:'mp3'}],p.status(),'Track mix'));

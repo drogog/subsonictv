@@ -22,7 +22,7 @@ var MusicPlayer = (function () {
   }
   function restoreStream() {
     var old = audio, url = old.src, at = old.currentTime || 0, playing = !old.paused, track = queue[index];
-    cancelFade(); selectOutput(false); analysisMessage = 'Using TV playback · visualization unavailable for this stream';
+    cancelFade(); selectOutput(false); analysisMessage = 'Using TV playback · ' + (old.error && old.error.message || 'Visualization unavailable for this stream');
     if (at > 0) { var restore = function () { htmlAudio.removeEventListener('loadedmetadata',restore); if (audio === htmlAudio && queue[index] === track) { htmlAudio.currentTime = at; } }; htmlAudio.addEventListener('loadedmetadata',restore); }
     audio.src = url; audio.load(); inspectFormat(); if (playing) { play(); } else { state = 'Paused'; } update();
   }
@@ -78,7 +78,7 @@ var MusicPlayer = (function () {
     if (attached) { replaceAudio(at,playing); } update();
   }
   function enableAnalysis() {
-    if (typeof StreamAudio !== 'undefined') { if (!audio.streamAudio) { analysisMessage = 'Visualization needs Original MP3 / FLAC playback'; } return; }
+    if (typeof StreamAudio !== 'undefined') { return; }
     var Constructor = window.AudioContext || window.webkitAudioContext, attempts = 0;
     if (audio.nativeAudio) { return; }
     if (nativeAvailable() && queue[index] && !queue[index].radio) { enableNative(); return; }
@@ -194,8 +194,8 @@ var MusicPlayer = (function () {
     loadGain();
     if (typeof StreamAudio !== 'undefined') {
       var track = queue[index], settings = typeof AppSettings !== 'undefined' ? AppSettings.values : {};
-      selectOutput(!track.radio && !settings.quality && settings.engine !== 1 && /^(mp3|flac)$/i.test(track.suffix || '') && StreamAudio.available());
-      analysisMessage = track.radio ? 'Radio visualization unavailable' : 'Visualization needs Original MP3 / FLAC playback';
+      selectOutput(!track.radio && !settings.quality && settings.engine !== 1 && StreamAudio.supports(track) && StreamAudio.available());
+      analysisMessage = track.radio ? 'Radio visualization unavailable' : 'Visualization needs Original MP3 / FLAC / M4A playback';
       state = 'Loading';
     }
     if (formatRequest) { formatRequest.cancel(); formatRequest = null; }

@@ -2,6 +2,7 @@
 var StreamDecoder = (function () {
   'use strict';
   var sharedContext = null, CHUNK = 65536, MAX_ENCODED = 1048576, AHEAD = 3, SENSITIVITIES = [-12,-6,0,6,12];
+  var FAST_POLL_MS = 10, MAX_SLEEP_MS = 250, REFILL_RESERVE = 2.5;
   function unlock() {
     if (!sharedContext) { sharedContext = new (window.AudioContext || window.webkitAudioContext)(); }
     if (sharedContext.resume) { sharedContext.resume(); }
@@ -13,6 +14,7 @@ var StreamDecoder = (function () {
   function start(url, options) {
     options = options || {};
     var context, analyser, gain, source, asset, format, xhr = null, timer = null, stopped = false, ended = false;
+    var m4a = null, decodingBatch = false;
     var offset = 0, nodes = [], pending = [], pendingSeconds = 0, nextTime = 0, firstTime = null, startedWall = clock(), lastReport = 0, lastAudioTime = -1, lastAdvance = clock();
     var paused = false, positionBase = 0, awaitingSince = startedWall, spectrumSensitivity = null;
     function spectrumRange() {
@@ -28,6 +30,7 @@ var StreamDecoder = (function () {
     function finish(reason) {
       var i;
       if (stopped) { return; } stopped = true;
+      if (m4a) { m4a.stop(); }
       if (timer !== null) { clearTimeout(timer); } if (xhr) { xhr.onreadystatechange = null; xhr.abort(); xhr = null; }
       for (i = 0; i < nodes.length; i++) { try { if (nodes[i].node.stop) { nodes[i].node.stop(0); } else { nodes[i].node.noteOff(0); } nodes[i].node.disconnect(); } catch (ignore) {} }
       try { if (asset) { asset.stop(); asset.off(); if (asset.decoder) { asset.decoder.off(); } if (asset.demuxer) { asset.demuxer.off(); } } if (source) { source.off(); } if (gain) { gain.disconnect(); } if (analyser) { analyser.disconnect(); } } catch (ignore) {}
@@ -59,6 +62,12 @@ var StreamDecoder = (function () {
       stat.retainedBytes = bytes; stat.maxRetainedBytes = Math.max(stat.maxRetainedBytes,bytes); return bytes;
     }
     function buffered() { return pendingSeconds + Math.max(0,nextTime - context.currentTime); }
+    function pumpDelay() {
+      if (firstTime === null || stat.underruns > 0) { return FAST_POLL_MS; }
+      // Only already-scheduled Web Audio nodes can play while the TV thread sleeps.
+      var spareMs = (nextTime - context.currentTime - REFILL_RESERVE) * 1000;
+      return Math.max(FAST_POLL_MS,Math.min(MAX_SLEEP_MS,Math.floor(spareMs)));
+    }
     function feed(data) {
       var t = clock();
       try { source.emit('data',new AV.Buffer(data)); } catch (error) { fail('Demux failed: ' + (error.name || 'Error')); }
@@ -105,11 +114,12 @@ var StreamDecoder = (function () {
       while (pending.length) {
         if (nextTime < now) { if (firstTime !== null) { stat.underruns++; firstTime += now + 0.15 - nextTime; } nextTime = now + 0.15; }
         if (firstTime === null) { firstTime = nextTime; stat.startupMs = clock() - startedWall; stat.state = 'Playing'; }
-        buffer = pending.shift(); pendingSeconds -= buffer.duration;
+        buffer = pending.shift();
         node = context.createBufferSource(); node.buffer = buffer; node.connect(analyser);
         if (node.start) { node.start(nextTime); } else { node.noteOn(nextTime); }
         nodes.push({node:node,buffer:buffer,start:nextTime,end:nextTime + buffer.duration,bytes:buffer.length * buffer.numberOfChannels * 4}); nextTime += buffer.duration;
       }
+      pendingSeconds = 0;
       stat.playedSeconds = position();
     }
     function position() { return firstTime === null ? positionBase : Math.min(stat.decodedSeconds,positionBase + Math.max(0,Math.min(context.currentTime,nextTime) - firstTime)); }
@@ -143,7 +153,7 @@ var StreamDecoder = (function () {
       if (stopped || paused) { return; }
       try {
         schedule();
-        if (asset.decoder && !asset.decoder.waiting) {
+        if (asset && asset.decoder && !asset.decoder.waiting) {
           do {
             if (buffered() >= AHEAD) { break; }
             step = asset.decoder.decode();
@@ -155,15 +165,28 @@ var StreamDecoder = (function () {
         if (context.currentTime > lastAudioTime) { lastAudioTime = context.currentTime; lastAdvance = clock(); }
         if (firstTime !== null && clock() - lastAdvance > 8000) { fail('Web Audio clock is stalled. Start the test with OK on the remote.'); return; }
         if (options.seconds && clock() - startedWall > (options.seconds + 30) * 1000) { fail('Benchmark timed out.'); return; }
-        available = asset.decoder ? asset.decoder.stream.remainingBytes() : 0;
+        available = asset && asset.decoder ? asset.decoder.stream.remainingBytes() : 0;
         stat.remainingEncodedBytes = available;
-        if (!ended && buffered() < AHEAD && (available < CHUNK || asset.decoder && asset.decoder.waiting)) { requestChunk(); }
+        if (m4a && !ended && !decodingBatch && buffered() < AHEAD) {
+          decodingBatch = true;
+          m4a.next(function (error,buffer,last) {
+            decodingBatch = false;
+            if (stopped) { return; }
+            if (error) { fail(error); return; }
+            stat.sampleRate = buffer.sampleRate;
+            stat.channels = buffer.numberOfChannels;
+            stat.codec = m4a.codec(); stat.downloadedBytes = m4a.bytes();
+            pending.push(buffer); pendingSeconds += buffer.duration; stat.decodedSeconds += buffer.duration;
+            ended = last;
+          });
+        }
+        if (!m4a && !ended && buffered() < AHEAD && (available < CHUNK || asset.decoder && asset.decoder.waiting)) { requestChunk(); }
         if (options.seconds && stat.playedSeconds >= options.seconds) { finish('Complete'); return; }
         if (ended && buffered() <= 0 && !step) { finish('Complete'); return; }
         if (firstTime === null && clock() - awaitingSince > 20000) { fail('Decoder did not start within 20 seconds.'); return; }
         if (clock() - lastReport > 500) { lastReport = clock(); report(); }
       } catch (error) { fail('Decoder failed: ' + (error.name || 'Error')); return; }
-      timer = setTimeout(pump,10);
+      if (!stopped && !paused) { timer = setTimeout(pump,pumpDelay()); }
     }
     try {
       if (!sharedContext) { sharedContext = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -175,22 +198,26 @@ var StreamDecoder = (function () {
       stat.outputSampleRate = context.sampleRate; stat.contextState = context.state || 'legacy';
       bins = new Uint8Array(analyser.frequencyBinCount);
       var wave = new Uint8Array(analyser.fftSize);
-      source = new AV.EventEmitter(); source.start = function () {}; source.pause = function () {};
-      asset = new AV.Asset(source);
-      asset.on('format',function (value) {
-        format = value; stat.sampleRate = value.sampleRate; stat.channels = value.channelsPerFrame;
-        if (stat.channels < 1 || stat.channels > 2 || stat.sampleRate > 96000) { fail('Prototype supports mono/stereo up to 96 kHz.'); }
-      });
-      asset.on('data',function (pcm) {
-        var frames, buffer, channel, samples, i;
-        if (stopped || !format) { return; }
-        frames = pcm.length / stat.channels;
-        buffer = context.createBuffer(stat.channels,frames,stat.sampleRate);
-        for (channel = 0; channel < stat.channels; channel++) { samples = buffer.getChannelData(channel); for (i = 0; i < frames; i++) { samples[i] = pcm[i * stat.channels + channel]; } }
-        pending.push(buffer); pendingSeconds += buffer.duration; stat.decodedSeconds += buffer.duration;
-      });
-      asset.on('error',function (error) { if (!stopped) { fail('Decoder: ' + String(error && error.message || error || 'unsupported audio frame').slice(0,120)); } });
-      asset.start(false);
+      if (options.m4a) {
+        m4a = M4AReader.open(url,context);
+      } else {
+        source = new AV.EventEmitter(); source.start = function () {}; source.pause = function () {};
+        asset = new AV.Asset(source);
+        asset.on('format',function (value) {
+          format = value; stat.sampleRate = value.sampleRate; stat.channels = value.channelsPerFrame;
+          if (stat.channels < 1 || stat.channels > 2 || stat.sampleRate > 96000) { fail('Prototype supports mono/stereo up to 96 kHz.'); }
+        });
+        asset.on('data',function (pcm) {
+          var frames, buffer, channel, samples, i;
+          if (stopped || !format) { return; }
+          frames = pcm.length / stat.channels;
+          buffer = context.createBuffer(stat.channels,frames,stat.sampleRate);
+          for (channel = 0; channel < stat.channels; channel++) { samples = buffer.getChannelData(channel); for (i = 0; i < frames; i++) { samples[i] = pcm[i * stat.channels + channel]; } }
+          pending.push(buffer); pendingSeconds += buffer.duration; stat.decodedSeconds += buffer.duration;
+        });
+        asset.on('error',function (error) { if (!stopped) { fail('Decoder: ' + String(error && error.message || error || 'unsupported audio frame').slice(0,120)); } });
+        asset.start(false);
+      }
       /* Buffer sources feed the analyser directly; the media-element bridge is not used. */
       pump();
     } catch (error) { fail('Streaming decoder unavailable: ' + (error.name || 'Error')); }
