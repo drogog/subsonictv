@@ -25,3 +25,22 @@ openMix();key(13);const skipped=requests.at(-1);playbackRevision++;p.update();as
 tracks=[{id:'missing',title:'Missing'}];p.actions(tracks[0],0);response({song:tracks[0]});key(40);key(40);key(13);key(40);const beforeDisabled=requests.length;key(13);assert.equal(requests.length,beforeDisabled);assert(nodes['music-message'].textContent.includes('album ID'));
 tracks=[{id:'radio',radio:true,title:'Radio'}];p.actions(tracks[0],0);assert(!labels().includes('Start mix'));
 console.log('PASS: seed menu navigation, disabled choices, radio exclusion, repeated OK, Back cancellation, stale queue/track guards and labelled result queue.');
+
+const playing = {id:'playing',title:'Playing'};
+const queuedSeed = {...seed,id:'queued',title:'Queued seed'};
+tracks = [playing,queuedSeed,{id:'previous'}]; current = 0;
+for (const index of [1,-1]) {
+  p.actions(queuedSeed,index); response({song:queuedSeed});
+  const startMix = labels().indexOf('Start mix');
+  assert(startMix >= 0);
+  for (let i = 0; i < startMix; i++) key(40);
+  key(13); key(13);
+  assert.equal(requests.at(-1).m,'getSimilarSongs2');
+  assert.equal(requests.at(-1).p.id,queuedSeed.id);
+  response({similarSongs2:{song:[playing,queuedSeed,{id:'previous'},{id:'different-'+index}]}});
+  assert.equal(tracks[0],playing);
+  assert.equal(tracks[1].id,'different-'+index);
+  assert.equal(nodes['music-title'].textContent,'Queue');
+  key(10009);
+}
+console.log('PASS: seed from a queue row or mix list while the currently playing song continues.');

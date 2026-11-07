@@ -23,13 +23,30 @@ var SeedMix = (function () {
     if (kind === 'artist' && !track.artistId) { return 'This song has no artist ID.'; }
     return '';
   }
-  function build(original, kind, done) {
+  function build(original, kind, done, queueContext) {
     var seed = metadata(original,{}), pool = [], seen = {}, request = null, finished = false, calls = 0;
     var method = '', partial = false, album = null, timer;
+    var used = {}, previousIndex;
+    var previous = queueContext && queueContext.upcoming || [];
+    for (previousIndex = 0; previousIndex < previous.length; previousIndex++) {
+      used['$' + previous[previousIndex].id] = true;
+    }
+    function pick(candidates, count) {
+      return kind === 'artist' ? MusicCatalog.shuffle(candidates).slice(0,count) : TrackMix.build(candidates,count);
+    }
     function cancel() { finished = true; clearTimeout(timer); if (request) { request.cancel(); request = null; } pool = []; }
     function finish(error) {
       if (finished) { return; }
-      var tracks = kind === 'artist' ? MusicCatalog.shuffle(pool).slice(0,50) : TrackMix.build(pool,50);
+      var fresh = [], repeats = [], i;
+      for (i = 0; i < pool.length; i++) {
+        (used['$' + pool[i].id] ? repeats : fresh).push(pool[i]);
+      }
+      var tracks = pick(fresh,50);
+      if (tracks.length < 50) { tracks = tracks.concat(pick(repeats,50 - tracks.length)); }
+      // Even if a small library returns exactly the previous sequence, vary its start.
+      if (tracks.length > 1 && previous.length && tracks[0].id === previous[0].id) {
+        tracks.push(tracks.shift());
+      }
       var name = kind === 'album' ? seed.album : kind === 'artist' ? seed.artist : seed.title;
       var result = {tracks:tracks,label:(kind === 'album' ? 'Album mix' : kind === 'artist' ? 'Artist mix' : 'Track mix') + ' · ' + (name || 'Untitled'),method:method,partial:partial};
       cancel(); done(error || (tracks.length ? null : 'No other songs found for this mix.'),result);
@@ -47,7 +64,7 @@ var SeedMix = (function () {
       var i, t;
       for (i = 0; i < songs.length && pool.length < 200; i++) {
         t = songs[i];
-        if (!t || !t.id || t.id === seed.id || t.isVideo || t.radio || seen['$' + t.id]) { continue; }
+        if (!t || !t.id || t.id === seed.id || (queueContext && t.id === queueContext.playingId) || t.isVideo || t.radio || seen['$' + t.id]) { continue; }
         // IDs, not display names, determine artist membership (including compilations).
         if (artistOnly && t.artistId !== seed.artistId && !(t.artists || []).some(function (a) { return a.id === seed.artistId; })) { continue; }
         seen['$' + t.id] = true; pool.push(t);
@@ -82,7 +99,7 @@ var SeedMix = (function () {
       function next() {
         if (at >= tags.length || pool.length >= 200) { if (pool.length) { finish(); } else { artistSongs(); } return; }
         ask('getRandomSongs',{genre:tags[at++],size:Math.floor(200 / tags.length)},function (error,data) {
-          if (error) { finish(error); return; }
+          if (error) { if (pool.length) { method = 'Server recommendations'; finish(); } else { finish(error); } return; }
           add(data.randomSongs && data.randomSongs.song || []); next();
         });
       }
@@ -94,7 +111,12 @@ var SeedMix = (function () {
       if (!id) { if (album) { artistSongs(); } else { tagged(); } return; }
       ask('getSimilarSongs2',{id:id,count:200},function (error,data) {
         if (!error) { add(data.similarSongs2 && data.similarSongs2.song || []); }
-        if (pool.length) { method = 'Server recommendations'; finish(); return; }
+        if (pool.length) {
+          if (kind === 'track' && previous.length && genres(seed).length && pool.every(function (song) { return used['$' + song.id]; })) {
+            tagged(); return;
+          }
+          method = 'Server recommendations'; finish(); return;
+        }
         if (kind === 'track' && seed.artistId && seed.artistId !== id) {
           ask('getSimilarSongs2',{id:seed.artistId,count:200},function (err,body) {
             if (!err) { add(body.similarSongs2 && body.similarSongs2.song || []); }
