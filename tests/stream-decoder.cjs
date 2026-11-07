@@ -1,11 +1,11 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
-function harness(status=206,chunkLimit=65536,partialFrames=false,seconds=5){
-  let now=0,id=0,lastStat,done;const tasks=new Map(),requests=[],sources=[];let analyser,gainNode,firstEncoded;
+function harness(status=206,chunkLimit=65536,partialFrames=false,seconds=5,m4a=false){
+  let now=0,id=0,lastStat,done,nextRequestDelay=20;const polls=[];const tasks=new Map(),requests=[],sources=[];let analyser,gainNode,firstEncoded;
   const frames=44100*35,bytes=Buffer.alloc(44+frames*4);bytes.write('RIFF',0);bytes.writeUInt32LE(bytes.length-8,4);bytes.write('WAVEfmt ',8);bytes.writeUInt32LE(16,16);bytes.writeUInt16LE(1,20);bytes.writeUInt16LE(2,22);bytes.writeUInt32LE(44100,24);bytes.writeUInt32LE(176400,28);bytes.writeUInt16LE(4,32);bytes.writeUInt16LE(16,34);bytes.write('data',36);bytes.writeUInt32LE(frames*4,40);for(let i=0;i<frames;i++){const v=Math.round(Math.sin(i*440*2*Math.PI/44100)*10000);bytes.writeInt16LE(v,44+i*4);bytes.writeInt16LE(v,46+i*4);}
-  function later(fn,delay){tasks.set(++id,{fn,at:now+(delay||1)});return id;}
+  function later(fn,delay){if(fn.name==='pump')polls.push({at:now,delay});tasks.set(++id,{fn,at:now+(delay||1)});return id;}
   function Context(){this.currentTime=0;this.destination={};this.createAnalyser=()=>(analyser={frequencyBinCount:512,minDecibels:-100,maxDecibels:-30,signalDb:-18,connect(){},disconnect(){},getByteFrequencyData(a){a.fill(Math.max(0,Math.min(255,Math.round((this.signalDb-this.minDecibels)/(this.maxDecibels-this.minDecibels)*255))));}});this.createGain=()=>(gainNode={gain:{value:1},connect(){},disconnect(){}});this.createBuffer=(channels,length,rate)=>({numberOfChannels:channels,length,duration:length/rate,data:Array.from({length:channels},()=>new Float32Array(length)),getChannelData(c){return this.data[c];}});this.createBufferSource=()=>{const n={connect(to){this.to=to;},disconnect(){},start(at){this.at=at;},stop(){this.stopped=true;}};sources.push(n);return n;};context=this;}
   let context;
-  function XHR(){this.readyState=0;this.status=0;this.aborted=false;this.open=()=>{};this.setRequestHeader=(n,v)=>{this.range=v;};this.abort=()=>{this.aborted=true;};this.send=()=>{requests.push(this);later(()=>{if(this.aborted)return;const m=/bytes=(\d+)-(\d+)/.exec(this.range),start=+m[1],end=+m[2]+1;this.status=start>=bytes.length?416:status;this.readyState=2;this.onreadystatechange();if(this.aborted)return;let buf=bytes.subarray(start,Math.min(end,start+chunkLimit,bytes.length));this.response=buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength);this.readyState=4;this.onreadystatechange();},20);};}
+  function XHR(){this.readyState=0;this.status=0;this.aborted=false;this.open=()=>{};this.setRequestHeader=(n,v)=>{this.range=v;};this.abort=()=>{this.aborted=true;};this.send=()=>{const latency=nextRequestDelay;nextRequestDelay=20;requests.push(this);later(()=>{if(this.aborted)return;const m=/bytes=(\d+)-(\d+)/.exec(this.range),start=+m[1],end=+m[2]+1;this.status=start>=bytes.length?416:status;this.readyState=2;this.onreadystatechange();if(this.aborted)return;let buf=bytes.subarray(start,Math.min(end,start+chunkLimit,bytes.length));this.response=buf.buffer.slice(buf.byteOffset,buf.byteOffset+buf.byteLength);this.readyState=4;this.onreadystatechange();},latency);};}
   const c={AppSettings:{values:{sensitivity:0}},console,Uint8Array,Float32Array,ArrayBuffer,Int8Array,Int16Array,Int32Array,Uint16Array,Uint32Array,Float64Array,XMLHttpRequest:XHR,Date:{now:()=>now},setTimeout:later,clearTimeout:i=>tasks.delete(i),setInterval:later,clearInterval:i=>tasks.delete(i),AudioContext:Context,performance:{now:()=>now}};c.window=c;c.global=c;
   vm.createContext(c);for(const name of ['vendor/aurora','vendor/mp3','vendor/flac'])vm.runInContext(fs.readFileSync('subsonic-tv/js/'+name+'.js','utf8'),c);
   const append=c.AV.BufferList.prototype.append;c.AV.BufferList.prototype.append=function(buffer){if(!firstEncoded)firstEncoded=buffer;return append.call(this,buffer);};
@@ -26,9 +26,20 @@ function harness(status=206,chunkLimit=65536,partialFrames=false,seconds=5){
     };
   }
   vm.runInContext(fs.readFileSync('subsonic-tv/js/stream-decoder.js','utf8'),c);
-  const engine=c.StreamDecoder.start('test.wav',{seconds,volume:1,onupdate:s=>lastStat={...s},onend:s=>done={...s}});
+  if (m4a) {
+    // Short, asynchronously delivered PCM buffers exercise the M4A scheduler.
+    c.M4AReader = {open(url,ctx) {
+      let packets = 350, task;
+      return {
+        next(done) { task = later(() => done(null,ctx.createBuffer(2,3200,32000),--packets === 0),2); },
+        codec() { return 'ALAC'; }, bytes() { return (350 - packets) * 400; },
+        stop() { tasks.delete(task); }
+      };
+    }};
+  }
+  const engine=c.StreamDecoder.start('test',{seconds,m4a,volume:1,onupdate:s=>lastStat={...s},onend:s=>done={...s}});
   function tick(ms){const end=now+ms;for(let count=0;count<10000&&tasks.size;count++){let chosen=[...tasks].sort((a,b)=>a[1].at-b[1].at)[0];if(chosen[1].at>end)break;now=chosen[1].at;if(context)context.currentTime=now/1000;tasks.delete(chosen[0]);chosen[1].fn();engine.spectrum();}now=end;if(context)context.currentTime=now/1000;}
-  return {engine,tick,requests,sources,tasks,bytes,analyser,gainNode,settings:c.AppSettings.values,get firstEncoded(){return firstEncoded;},get stat(){return lastStat;},get done(){return done;}};
+  return {engine,tick,requests,sources,tasks,bytes,analyser,gainNode,polls,delayNextRange(ms){nextRequestDelay=ms;},settings:c.AppSettings.values,get firstEncoded(){return firstEncoded;},get stat(){return lastStat;},get done(){return done;}};
 }
 let h=harness();h.tick(1500);assert(h.sources.length>0,'PCM buffers should be scheduled before whole-file download');assert(h.stat.decodedSeconds>0);assert(h.stat.downloadedBytes<h.bytes.length/3);assert(h.stat.maxRetainedBytes<3*1024*1024);assert(h.sources[0].buffer.data[0].some(x=>x!==0));h.tick(5000);assert.equal(h.done.state,'Complete');assert.equal(h.done.underruns,0);assert(h.done.peak>0);assert.equal(h.tasks.size,0);assert(h.sources[h.sources.length-1].stopped,'future queued audio must be stopped on completion');
 h=harness(200);h.tick(30);assert.equal(h.done.state,'Error');assert(h.done.error.includes('byte ranges'));assert(h.requests[0].aborted);assert.equal(h.sources.length,0);
@@ -41,3 +52,42 @@ console.log('PASS: incremental real PCM decoding, bounded 64 KB requests/read-ah
 h=harness();assert.equal(h.analyser.maxDecibels,-12);h.analyser.signalDb=-24;const quieter=h.engine.spectrum()[0];h.analyser.signalDb=-18;const louder=h.engine.spectrum()[0];assert(louder>quieter && louder<255,"strong bins must retain motion above the old -30 dB ceiling");h.settings.sensitivity=12;assert.equal(h.engine.spectrum()[0],255);h.settings.sensitivity=-12;assert(h.engine.spectrum()[0]<255);assert.equal(h.analyser.maxDecibels,0);assert.equal(h.analyser.minDecibels,-78);assert.equal(h.gainNode.gain.value,1,"visual sensitivity must never change playback gain");h.engine.stop();console.log("PASS: pre-conversion sensitivity preserves loud-bin variation, updates live and leaves audio gain unchanged.");
 
 h=harness(206,65536,false,null);h.tick(32000);let retainedFromFirst=0;for(let b=h.firstEncoded;b;b=b.next){retainedFromFirst+=b.length;}assert(retainedFromFirst<=65536*3,"a reference to the first compressed chunk must not retain the full forward chain");h.engine.stop();console.log("PASS: stale first-chunk references cannot retain the streamed track through forward links.");
+
+h = harness(206,65536,false,null);
+h.tick(2000);
+assert.equal(h.polls[0].delay,10,'startup polls promptly');
+const before = h.polls.length;
+h.tick(10000);
+const healthy = h.polls.slice(before);
+assert(healthy.some(p => p.delay === 250));
+assert(healthy.length < 300,'a healthy 10-second window needs far fewer than 1,000 timers');
+assert.equal(h.engine.stats().underruns,0);
+
+h.delayNextRange(4500);
+h.tick(4000);
+assert.equal(h.polls.at(-1).delay,10,'low buffer returns to fast polling before recovery');
+h.tick(2500);
+assert(h.engine.stats().underruns > 0,'a delayed range creates a real scheduling gap');
+const recovered = h.polls.length;
+h.tick(4000);
+assert(h.engine.stats().decodedSeconds - h.engine.position() > 2.5,'buffer refilled after the stall');
+assert(h.polls.length > recovered + 350);
+assert(h.polls.slice(recovered).every(p => p.delay === 10),'fallback persists after the buffer refills');
+h.engine.pause();
+const pausedPolls = h.polls.length;
+h.tick(1000);
+assert.equal(h.polls.length,pausedPolls);
+h.engine.resume();
+h.tick(1000);
+assert(h.polls.slice(pausedPolls).every(p => p.delay === 10),'resume keeps the fallback for this track');
+h.engine.stop();
+assert.equal(h.tasks.size,0);
+console.log('PASS: healthy playback scheduled ' + healthy.length + ' decoder timers in 10 simulated seconds; low buffer, underrun fallback and pause/resume verified.');
+
+h = harness(206,65536,false,null,true);
+h.tick(37000);
+assert.equal(h.done.state,'Complete');
+assert(Math.abs(h.done.playedSeconds - 35) < 0.001);
+assert.equal(h.done.underruns,0);
+assert(h.polls.some(p => p.delay > 10),'new M4A playback can sleep again');
+assert.equal(h.tasks.size,0);

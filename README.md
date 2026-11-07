@@ -2,7 +2,7 @@
 
 A lightweight Navidrome / Subsonic music player for older Samsung Tizen TVs. Built with plain ES5 JavaScript, HTML and CSS, designed around the remote, and tested on Tizen 2.4 hardware.
 
-Created by **Dramak**. Current widget version: **0.15.3**.
+Created by **Dramak**. Current widget version: **0.18.2**.
 
 ![Lounge theme with artwork and playback controls](docs/screenshots/now-playing.png)
 
@@ -14,7 +14,7 @@ Created by **Dramak**. Current widget version: **0.15.3**.
 - Editable queue with Play next, Add to queue, reorder and remove; repeat one/all and paused session restore.
 - Classic, Lounge bottom-dock and Midnight layouts, with adjustable colours.
 - Fullscreen cover art, ambient motion, seven reactive visualizers, and a spinning LP whose tonearm follows track progress.
-- Original MP3/FLAC streaming through an incremental decoder, plus TV playback for other formats. Optional server transcoding, play/pause fades and ReplayGain attenuation.
+- Original MP3, FLAC and M4A (AAC or Apple Lossless) streaming through an incremental decoder, plus TV playback for other formats. Optional server transcoding, play/pause fades and ReplayGain attenuation.
 - Configurable idle fullscreen and foreground screensaver suppression.
 
 ## Screenshots
@@ -104,8 +104,8 @@ Media play/pause/stop and next/previous keys are also supported. TV volume stays
 - **Default fullscreen** chooses Cover, Ambient, Music visualization or Spinning LP. Switching with Up is temporary; reopening uses the saved default.
 - **Listening preferences** includes idle fullscreen (Off / 30 / 60 / 120 / 300 seconds), repeat, queue restore, and Track/Album ReplayGain. Album mode falls back to track tags. Normalization attenuates only, uses available peak metadata and never boosts above source volume. Missing tags remain unchanged; it does not scan files for loudness.
 - **Visualization settings** includes Spectrum bars, Mirror spectrum, Waveform, Orbit, Ribbon, Halo and Dot matrix. Effects are Clean, Soft trails, Bass pulse, Colour flow and Zoom pulse. Soft trails use a fixed short geometry history over a fresh opaque background, preventing permanent fade residue. Sensitivity, red saturation tips (bars/Orbit) and Keep screen awake are also available. Red tips indicate the visualizer’s display ceiling, not measured audio distortion. Screensaver suppression applies while the app is visible and does not override a TV sleep timer.
-- **Reactive playback** requires original MP3/FLAC and HTTP byte-range support. The custom decoder keeps a small buffer ahead rather than downloading the whole track. Other codecs, radio and requested transcodes use the TV media path, where reactive visualization may be unavailable. A failed decoder falls back to TV playback where possible.
-- **Now Playing mixes:** open **Song options → Start mix** (or press Red on Now Playing). Track mix tries server recommendations, then genre tags or the artist’s library; Album mix uses the album’s genres, falling back to artist recommendations/library; Artist mix shuffles only songs identified as belonging to the current artist. The current song continues while up to 50 upcoming songs replace the old upcoming queue. Queue shows the seed and method used. Back cancels loading; unavailable album/artist IDs disable those choices. Artist sampling is limited to eight albums.
+- **Reactive playback** uses original MP3, FLAC or indexed M4A and requires HTTP byte-range support. M4A playback reads the sample index and short audio ranges. AAC uses the TV’s Web Audio decoder. Apple Lossless uses a bundled mono/stereo decoder up to 96 kHz. The player keeps a few seconds of audio in memory. Other codecs, radio and requested transcodes use the TV media path, where reactive visualization may be unavailable. A failed decoder falls back to TV playback where possible.
+- **Now Playing mixes:** open **Song options → Start mix** (or press Red on Now Playing). Track mix tries server recommendations, then genre tags or the artist’s library; Album mix uses the album’s genres, falling back to artist recommendations/library; Artist mix shuffles only songs identified as belonging to the current artist. You can also start a mix from a queue row or press Red on a song in the mix list. Each request uses the selected song as its seed and prefers songs outside the previous upcoming mix. The current song continues while up to 50 upcoming songs replace the old upcoming queue. Queue shows the seed and method used. Back cancels loading; unavailable album/artist IDs disable those choices. Artist sampling is limited to eight albums.
 - **Session restore** saves up to 500 nearby queue entries as metadata only. It opens paused; Play restarts the selected song from the beginning. Arbitrary seeking and gapless/crossfade playback are not implemented. Play/pause fade is available.
 - **All Songs shuffle** scans library metadata before starting; Back cancels. Browsing stays paged. No audio or cover collection is downloaded for this scan.
 - **Radio** needs a direct HTTP(S) audio URL configured in the server. Playlist URLs and in-stream song metadata are not parsed.
@@ -133,6 +133,7 @@ See [Now Playing mixes](docs/roadmap.md) for behaviour, fallback rules and remai
 | --- | --- | --- | --- |
 | [Aurora.js](https://github.com/audiocogs/aurora.js/releases/tag/v0.4.4) | Audiocogs 0.4.4 | MIT | Demuxing and decoder framework |
 | [MP3.js](https://github.com/audiocogs/mp3.js/releases/tag/v0.1.0) | Audiocogs 0.1.0; derived from JSMad | GPL-2.0 | Incremental MP3 decoding |
+| [FFmpeg ALAC decoder](https://github.com/FFmpeg/FFmpeg/blob/n7.1/libavcodec/alac.c) | FFmpeg n7.1, David Hammerton and contributors | LGPL-2.1-or-later | ES5 adaptation for incremental Apple Lossless decoding |
 | [FLAC.js](https://github.com/audiocogs/flac.js/releases/tag/v0.2.1) | Audiocogs 0.2.1; decoder derived from FFmpeg | LGPL-2.1-or-later | Incremental FLAC decoding |
 
 The readable browser bundles and their license texts are included under [`subsonic-tv/js/vendor`](subsonic-tv/js/vendor). Local changes replace `const` with `var` for the old engine and fix FLAC metadata handling across range boundaries; see [NOTICES.md](subsonic-tv/js/vendor/NOTICES.md).

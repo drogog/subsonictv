@@ -3,7 +3,7 @@ function setup() {
   const requests=[],timers=new Map(); let next=0,result;
   const c={SUBSONIC_CONFIG:{url:'mock',username:'test'},localStorage:{getItem(){return null;}},setTimeout(fn){timers.set(++next,fn);return next;},clearTimeout(id){timers.delete(id);},MusicAPI:{request(m,p,cb){const r={m,p,cb,cancel(){this.cancelled=true;}};requests.push(r);return r;}}};
   vm.createContext(c);for(const name of ['catalog','mix','seed-mix'])vm.runInContext(fs.readFileSync('subsonic-tv/js/'+name+'.js','utf8'),c);
-  return {c,requests,timers,start(seed,kind){return c.SeedMix.build(seed,kind,(error,value)=>{result={error,value};});},reply(data,error){requests.at(-1).cb(error||null,data);},get result(){return result;}};
+  return {c,requests,timers,start(seed,kind,queueContext){return c.SeedMix.build(seed,kind,(error,value)=>{result={error,value};},queueContext);},reply(data,error){requests.at(-1).cb(error||null,data);},get result(){return result;}};
 }
 const seed={id:'s',title:'Song',artist:'Artist',artistId:'ar',album:'Album',albumId:'al',genre:'Jazz'};
 let t=setup();t.start(seed,'track');assert.equal(t.requests[0].m,'getSimilarSongs2');assert.equal(t.requests[0].p.id,'s');
@@ -20,3 +20,25 @@ t=setup();t.start(seed,'track');const pending=t.requests[0];[...t.timers.values(
 t=setup();t.start(seed,'album');t.reply({},'Offline');assert.equal(t.result.error,'Offline');assert.equal(t.result.value.tracks.length,0);
 t=setup();t.start({...seed,radio:true},'track');assert.equal(t.requests.length,0);assert(t.result.error);assert.equal(t.timers.size,0);
 console.log('PASS: seeded recommendations, tag fallback, album tags, strict artist IDs, missing metadata, bounded requests/results, cancellation, timeout and errors.');
+
+const oldSongs = Array.from({length:50}, (_,i) => ({id:'old-' + i}));
+const freshSongs = Array.from({length:50}, (_,i) => ({id:'fresh-' + i}));
+const queueContext = {upcoming:oldSongs,playingId:'playing'};
+t = setup();
+t.start(seed,'track',queueContext);
+t.reply({similarSongs2:{song:oldSongs.concat([{id:'playing'}],freshSongs)}});
+assert.deepEqual(new Set(t.result.value.tracks.map(song => song.id)),new Set(freshSongs.map(song => song.id)));
+t = setup();
+t.start(seed,'track',queueContext);
+t.reply({similarSongs2:{song:oldSongs.slice(0,2)}});
+assert.equal(t.requests.at(-1).m,'getRandomSongs');
+t.reply({randomSongs:{song:[oldSongs[0],freshSongs[0]]}});
+assert.equal(t.result.value.tracks[0].id,freshSongs[0].id);
+assert.equal(t.result.value.tracks.length,3);
+t = setup();
+t.start(seed,'track',queueContext);
+t.reply({similarSongs2:{song:oldSongs.slice(0,2)}});
+t.reply({},'Unavailable');
+assert.equal(t.result.value.tracks.length,2);
+assert.equal(t.result.value.tracks[0].id,oldSongs[1].id);
+console.log('PASS: reseeding prioritizes fresh recommendations and varies small queues.');

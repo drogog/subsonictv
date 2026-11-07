@@ -74,8 +74,8 @@ var MusicPanel = (function () {
     return state.track === expected.track && state.index === expected.index && state.revision === expected.revision && state.playbackRevision === expected.playbackRevision;
   }
   function startMix(kind) {
-    var expected = MusicPlayer.status();
-    if (expected.track !== selected || expected.index !== queueAt) { message = 'The playing song changed. Back to open its options.'; draw(); return; }
+    var expected = MusicPlayer.status(), queue = MusicPlayer.tracks();
+    if (!expected.track || expected.track.radio || (queueAt >= 0 && queue[queueAt] !== selected)) { message = 'The playing song changed. Back to open its options.'; draw(); return; }
     cancel(); var token = generation, completed = false;
     busy = true; mixExpected = expected; message = 'Finding songs…'; draw();
     var handle = SeedMix.build(mixSeed,kind,function (error,result) {
@@ -87,7 +87,7 @@ var MusicPanel = (function () {
       var label = result.label + ' · ' + result.method + (result.partial ? ' · Limited sample' : '');
       if (!MusicPlayer.replaceUpcoming(result.tracks,expected,label)) { message = 'Mix could not be applied. Your queue is unchanged.'; draw(); return; }
       begin('queue','Queue'); focus = Math.min(expected.index + 1,MusicPlayer.status().count - 1); queueRows(); draw();
-    });
+    },{upcoming:queue.slice(expected.index + 1,expected.index + 51),playingId:expected.track.id});
     if (!completed) { request = handle; }
   }
   function actionRows() {
@@ -100,7 +100,7 @@ var MusicPanel = (function () {
       var value = !Listening.favourite(track);
       fetch(value ? 'star' : 'unstar',{id:track.id},function () { Listening.setFavourite(track,value); actionRows(); message = value ? 'Added to favourites.' : 'Removed from favourites.'; });
     }}); }
-    if (!track.radio && typeof SeedMix !== 'undefined' && MusicPlayer.status().track === track && MusicPlayer.status().index === queueAt) { items.push({label:'Start mix',detail:'Track, album or artist',action:mixMenu}); }
+    if (!track.radio && typeof SeedMix !== 'undefined' && MusicPlayer.status().track && !MusicPlayer.status().track.radio) { items.push({label:'Start mix',detail:'Track, album or artist',action:mixMenu}); }
     if (queueAt >= 0) { items.push({label:'Remove from queue',action:function () { MusicPlayer.remove(queueAt); back(); }}); }
     items.push({label:'Back',action:back}); message = MusicPlayer.status().track === track && MusicPlayer.status().normalization && MusicPlayer.status().normalization !== 'Normalization off' ? MusicPlayer.status().normalization : '';
   }
@@ -134,7 +134,7 @@ var MusicPanel = (function () {
     else if (code === 13) { select(); }
     return true;
   }
-  return {onPlay:function (fn) { onplay = fn; },isOpen:function () { return active; },handle:handle,actions:actions,
+  return {onPlay:function (fn) { onplay = fn; },isOpen:function () { return active; },coversPlayer:function () { return active && mode !== 'mix'; },handle:handle,actions:actions,
     queue:function () { begin('queue','Queue'); focus = Math.max(0,MusicPlayer.status().index); queueRows(); draw(); },
     search:function () { begin('search','Search'); keyFocus = 0; draw(); },
     favourites:function () { begin('favourites','Favourites'); fetch('getStarred2',{},function (data) { items = entries(data.starred2 || {}); items.forEach(function (e) { if (e.kind === 'song') { Listening.setFavourite(e.track,true); } }); message = items.length ? '' : 'No favourites yet. Open Song options to add one.'; }); },

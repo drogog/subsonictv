@@ -2,6 +2,10 @@
 var StreamAudio = (function () {
   'use strict';
   function available() { return typeof StreamDecoder !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext); }
+  function isM4A(track) {
+    return /^m4a$/i.test(track.suffix || '') || (!track.suffix && /^audio\/(mp4|x-m4a)(;|$)/i.test(track.contentType || ''));
+  }
+  function supports(track) { return /^(mp3|flac)$/i.test(track.suffix || '') || isM4A(track); }
   function create(track) {
     var events = {}, engine = null, generation = 0, position = 0, volume = 1, lastState = '';
     var player = {streamAudio:true,src:'',paused:true,duration:Number(track.duration) || 0,error:null};
@@ -22,7 +26,7 @@ var StreamAudio = (function () {
         if (engine) { engine.resume(); return; }
         emit('waiting');
         created = StreamDecoder.start(player.src,{
-          volume:volume,
+          volume:volume, m4a:isM4A(track),
           onupdate:function (stat) {
             if (token !== generation) { return; }
             position = stat.playedSeconds;
@@ -54,5 +58,5 @@ var StreamAudio = (function () {
     }});
     return player;
   }
-  return {available:available,create:create};
+  return {available:available,supports:supports,create:create};
 }());
